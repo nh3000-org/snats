@@ -5,7 +5,7 @@ import (
 	//	"fmt"
 	"log"
 	//	"net/url"
-	"snatsv5/panes"
+	"snats/panes"
 
 	//	"fyne.io/fyne/cmd/fyne_demo/tutorials"
 	//	"fyne.io/fyne/cmd/fyne_demo/tutorials"
