@@ -1,4 +1,4 @@
-module snats
+module github.com/nh3000-org.snats
 
 go 1.18
 
