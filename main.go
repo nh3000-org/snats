@@ -1,5 +1,5 @@
 // Package main provides various examples of Fyne API capabilities.
-package snats
+package main
 
 import (
 	//	"fmt"
