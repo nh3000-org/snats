@@ -1,5 +1,5 @@
 [Details]
   Icon = "../../theme/icons/fyne.png"
   Name = "Secure NATS"
-  ID = "io.fyne.demo"
+  ID = "io.nh3000.nats"
   Build = 6
