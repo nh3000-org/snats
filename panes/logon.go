@@ -1,3 +1,7 @@
+/*
+* Modify cipherkey for your installation
+ */
+
 package panes
 
 import (
@@ -22,6 +26,8 @@ import (
 	"encoding/hex"
 	"io"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	//	"reflect"
@@ -35,6 +41,9 @@ var Caroot string        // CAROOT certificate for server authentication
 var Queue string         // server message queue
 var Queuepassword string // server message queue password
 var Server string        // server url
+
+var Passwordhash string // hash value of password
+var Cipherkey string    // hash value of cipher key to decrypt json fields modify this field for your ntwork
 
 //var config ConfigNats
 
@@ -56,13 +65,15 @@ func parseURL(urlStr string) *url.URL {
 
 func dumpglobals(from string) {
 	log.Println(from, Password)
+	log.Println(from, Passwordhash)
 	log.Println(from, Server)
 	log.Println(from, Caroot)
 	log.Println(from, Queue)
 	log.Println(from, Queuepassword)
+
 }
 
-func loadjsonfromglobals() map[string]interface{} {
+func loadjsonconfigfromglobals() map[string]interface{} {
 	log.Println("loadjson Password", Password)
 	data := map[string]interface{}{
 		"server":        string(Server),
@@ -73,6 +84,17 @@ func loadjsonfromglobals() map[string]interface{} {
 	log.Println("loadjson data", data)
 	return data
 }
+func loadjsonhash() map[string]interface{} {
+	log.Println("loadhash Password", Password)
+	log.Println("loadhash Password hash", Passwordhash)
+	log.Println("loadhash Cipherkey", Cipherkey)
+	data := map[string]interface{}{
+		"passwordhash": string(Passwordhash),
+		"cipherkey":    string(Cipherkey),
+	}
+	log.Println("loadhash data", data)
+	return data
+}
 func MyJson(action string) {
 
 	if action == "CREATE" {
@@ -81,12 +103,13 @@ func MyJson(action string) {
 		Caroot = "None"
 		Queue = "None"
 		Queuepassword = "None"
+		Encmessage = "None"
 		configfile, configfileerr := os.Create("config.json")
 		if configfileerr == nil {
 			enc := json.NewEncoder(configfile)
 
-			log.Println("myjson save config", loadjsonfromglobals())
-			enc.Encode(loadjsonfromglobals())
+			//log.Println("myjson save config", loadjsonconfigfromglobals())
+			enc.Encode(loadjsonconfigfromglobals())
 		}
 		configfile.Close()
 	}
@@ -107,7 +130,7 @@ func MyJson(action string) {
 
 		json.Unmarshal([]byte(jc), &c)
 		for k, v := range c {
-			fmt.Println(k, "=>", v)
+			//fmt.Println(k, "=>", v)
 			if k == "server" {
 				Server = v.(string)
 			}
@@ -132,8 +155,68 @@ func MyJson(action string) {
 
 		if se == nil {
 			enc := json.NewEncoder(sc)
-			log.Println("myjson save", loadjsonfromglobals())
-			enc.Encode(loadjsonfromglobals())
+			//log.Println("myjson save", loadjsonconfigfromglobals())
+			enc.Encode(loadjsonconfigfromglobals())
+
+		}
+
+		sc.Close()
+	}
+}
+func MyHash(action string, hash string) {
+
+	if action == "CREATE" {
+		log.Println("create Hash", hash)
+
+		confighash, confighasherr := os.Create("config.hash")
+		if confighasherr == nil {
+			enc := json.NewEncoder(confighash)
+			//cipherKey := []byte("!99099jjhhnniikjkjilhh7dDDDkillp") //32 bit key for AES-256
+			cipherKey := []byte("asuperstrong32bitpasswordgohere!") //32 bit key for AES-256
+			Cipherkey = string(cipherKey)
+			log.Println("myhash save config", loadjsonhash())
+			enc.Encode(loadjsonhash())
+		}
+		confighash.Close()
+	}
+	if action == "LOAD" {
+
+		var c map[string]interface{}
+		jf, errf := os.Open("config.hash")
+		if errf != nil {
+			log.Println("LOAD Hash Error file", errf)
+		}
+		jc, je := ioutil.ReadAll(jf)
+		log.Println("myhash load jc", jc)
+		if je != nil {
+			log.Println("LOAD Hash Error read all", je)
+		}
+		jf.Close()
+
+		json.Unmarshal([]byte(jc), &c)
+		for k, v := range c {
+			fmt.Println(k, "=>", v)
+			if k == "passwordhash" {
+				Passwordhash = v.(string)
+			}
+			if k == "cipherkey" {
+				Cipherkey = v.(string)
+			}
+
+		}
+
+	}
+	if action == "SAVE" {
+		e := os.Remove("config.hash")
+		if e != nil {
+			log.Fatal(e)
+		}
+		sc, se := os.Create("config.hash")
+
+		if se == nil {
+			enc := json.NewEncoder(sc)
+			log.Println("myhash save", loadjsonhash())
+			enc.Encode(loadjsonhash())
 
 		}
 
@@ -141,7 +224,7 @@ func MyJson(action string) {
 	}
 }
 
-func welcomeScreen(_ fyne.Window) fyne.CanvasObject {
+func logonScreen(_ fyne.Window) fyne.CanvasObject {
 
 	_, configfileerr := os.Stat("config.json")
 	if configfileerr != nil {
@@ -168,8 +251,28 @@ func welcomeScreen(_ fyne.Window) fyne.CanvasObject {
 	queuepassword.Disable()
 	// try the password
 	tpbutton := widget.NewButton("Try Password", func() {
+		Password = password.Text
+		log.Println("TP password", Password)
+		pwh, err := bcrypt.GenerateFromPassword([]byte(Password), bcrypt.DefaultCost)
+		Passwordhash = string(pwh)
+		log.Println("TP Passwordhash", Passwordhash)
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, confighasherr := os.Stat("config.hash")
+		if confighasherr != nil {
+
+			MyHash("CREATE", Passwordhash)
+		}
 
 		Password = password.Text
+		MyHash("LOAD", "NONE")
+		// Comparing the password with the hash
+		if err := bcrypt.CompareHashAndPassword([]byte(Passwordhash), []byte(Password)); err != nil {
+			// TODO: Properly handle error
+			log.Fatal(err)
+		}
+
 		MyJson("LOAD")
 		log.Println("save password config", Password)
 		log.Println("save password gui", password.Text)
@@ -183,7 +286,7 @@ func welcomeScreen(_ fyne.Window) fyne.CanvasObject {
 		caroot.Enable()
 		queue.Enable()
 		queuepassword.Enable()
-		dumpglobals("myjson try passworde")
+		//dumpglobals("myjson try password")
 	})
 	// save the server
 	ssbutton := widget.NewButton("Save Server", func() {
@@ -200,7 +303,7 @@ func welcomeScreen(_ fyne.Window) fyne.CanvasObject {
 
 		MyJson("SAVE")
 
-		dumpglobals("myjson save")
+		//dumpglobals("myjson save")
 	})
 	return container.NewCenter(container.NewVBox(
 		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
@@ -282,4 +385,31 @@ func decrypt(encryptedString string, keyString string) (decryptedString string) 
 	}
 
 	return fmt.Sprintf("%s", plaintext)
+}
+func hashAndSalt(pwd []byte) string {
+
+	// Use GenerateFromPassword to hash & salt pwd
+	// MinCost is just an integer constant provided by the bcrypt
+	// package along with DefaultCost & MaxCost.
+	// The cost can be any value you want provided it isn't lower
+	// than the MinCost (4)
+	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
+	if err != nil {
+		log.Println(err)
+	}
+	// GenerateFromPassword returns a byte slice so we need to
+	// convert the bytes to a string and return it
+	return string(hash)
+}
+func comparePasswords(hashedPwd string, plainPwd []byte) bool {
+	// Since we'll be getting the hashed password from the DB it
+	// will be a string so we'll need to convert it to a byte slice
+	byteHash := []byte(hashedPwd)
+	err := bcrypt.CompareHashAndPassword(byteHash, plainPwd)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	return true
 }
