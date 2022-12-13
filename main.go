@@ -1,16 +1,20 @@
-// Package main provides various examples of Fyne API capabilities.
+/*
+* Modify logon cipherkey for your installation
+*/
 package main
 
 import (
 	//	"fmt"
 	"log"
 	//	"net/url"
-//	"snats/panes"
-
+	"github.com/nh3000-org/snats/panes"
+	//"github.com/nh3000-org/snats"
 	//	"fyne.io/fyne/cmd/fyne_demo/tutorials"
 	//	"fyne.io/fyne/cmd/fyne_demo/tutorials"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+
+	//"panes"
 
 	//	"fyne.io/fyne/v2/cmd/fyne_demo/tutorials"
 	"fyne.io/fyne/v2/cmd/fyne_settings/settings"
@@ -24,13 +28,13 @@ const preferenceCurrentTutorial = "currentTutorial"
 
 var topWindow fyne.Window
 
-var Password string      // encrypt file password
-var Caroot string        // server caroot certificate
-var Queue string         // server queue
-var Queuepassword string // server queue password
-var Server string        // server url
-var Aeskey byte          // aes encryption bytes
-
+//var Password string      // encrypt file password
+//var Caroot string        // server caroot certificate
+//var Queue string         // server queue
+//var Queuepassword string // server queue password
+//var Server string        // server url
+//var Aeskey byte          // aes encryption bytes
+//var Encmessage string    // message to send
 func main() {
 	a := app.NewWithID("io.nh3000.nats")
 	a.SetIcon(theme.FyneLogo())
@@ -46,7 +50,7 @@ func main() {
 	title := widget.NewLabel("Component name")
 	intro := widget.NewLabel("An introduction would probably go\nhere, as well as a")
 	intro.Wrapping = fyne.TextWrapWord
-	setTutorial := func(t panes.Panes) {
+	setTutorial := func(t panes.MyPane) {
 		if fyne.CurrentDevice().IsMobile() {
 			child := a.NewWindow(t.Title)
 			topWindow = child
@@ -160,19 +164,19 @@ func makeTray(a fyne.App) {
 	}
 }
 
-func unsupportedTutorial(t panes.Panes) bool {
+func unsupportedTutorial(t panes.MyPane) bool {
 	return !t.SupportWeb && fyne.CurrentDevice().IsBrowser()
 }
 
-func makeNav(setTutorial func(panes panes.Panes), loadPrevious bool) fyne.CanvasObject {
+func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.CanvasObject {
 	a := fyne.CurrentApp()
 
 	tree := &widget.Tree{
 		ChildUIDs: func(uid string) []string {
-			return panes.PanesIndex[uid]
+			return panes.MyPanesIndex[uid]
 		},
 		IsBranch: func(uid string) bool {
-			children, ok := panes.PanesIndex[uid]
+			children, ok := panes.MyPanesIndex[uid]
 
 			return ok && len(children) > 0
 		},
@@ -180,7 +184,7 @@ func makeNav(setTutorial func(panes panes.Panes), loadPrevious bool) fyne.Canvas
 			return widget.NewLabel("Collection Widgets")
 		},
 		UpdateNode: func(uid string, branch bool, obj fyne.CanvasObject) {
-			t, ok := panes.Panes[uid]
+			t, ok := panes.MyPanes[uid]
 			if !ok {
 				fyne.LogError("Missing tutorial panel: "+uid, nil)
 				return
@@ -193,7 +197,7 @@ func makeNav(setTutorial func(panes panes.Panes), loadPrevious bool) fyne.Canvas
 			}
 		},
 		OnSelected: func(uid string) {
-			if t, ok := panes.Panes[uid]; ok {
+			if t, ok := panes.MyPanes[uid]; ok {
 				if unsupportedTutorial(t) {
 					return
 				}
