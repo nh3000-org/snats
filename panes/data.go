@@ -52,7 +52,7 @@ var PasswordMustContainSpecial bool // password must contain special character
 var Server string // server url
 
 var UseJetstream bool   // if set to true uses jetstream protocol otherwise regular pub/sub
-var UseTLS string       // use TLS to Authenticate  else use userid /password
+var UseTLS bool         // use TLS to Authenticate  else use userid /password
 var Caroot string       // for UseTLS = true CAROOT certificate for server authentication
 var UserID string       // for UseTLS = false
 var UserPassword string // for UseTLS = false
@@ -93,13 +93,14 @@ var (
 	// Panes defines the metadata
 	MyPanes = map[string]MyPane{
 		"password": {"Password", "", passwordScreen, true},
+		"settings": {"Settingd", "", settingsScreen, true},
 		"logon":    {"Logon", "", logonScreen, true},
 		"messages": {"Messages", "", messagesScreen, true},
 	}
 
 	// PanesIndex  defines how our panes should be laid out in the index tree
 	MyPanesIndex = map[string][]string{
-		"": {"password", "logon", "messages"},
+		"": {"password", "settings", "logon", "messages"},
 	}
 )
 
@@ -170,10 +171,18 @@ func dumpglobals(from string) {
 func loadconfig() map[string]interface{} {
 	log.Println("loadconfig Password", Password)
 	data := map[string]interface{}{
-		"server":        string(Server),
-		"caroot":        string(Caroot),
-		"queue":         string(Queue),
-		"queuepassword": string(Queuepassword),
+		"server":                     string(Server),
+		"caroot":                     string(Caroot),
+		"queue":                      string(Queue),
+		"queuepassword":              string(Queuepassword),
+		"passwordminimumsize":        int(PasswordMinimumSize),
+		"passwordmustcontainnumber":  bool(PasswordMustContainNumber),
+		"passwordmustcontainletter":  bool(PasswordMustContainLetter),
+		"passwordmustcontainspecial": bool(PasswordMustContainSpecial),
+		"usejetstream":               bool(UseJetstream),
+		"usetls":                     bool(UseTLS),
+		"userid":                     string(UserID),
+		"userpassword":               string(UserPassword),
 	}
 	log.Println("loadconfig data", data)
 	return data
@@ -201,7 +210,7 @@ func loadhash() map[string]interface{} {
 }
 
 /*
- *	FUNCTION		: myjson
+ *	FUNCTION		: myjsonUasswordMustContainSpecial
  *	DESCRIPTION		:
  *		This function handles file actions for config.json to load memory
  *
@@ -219,6 +228,14 @@ func myjson(action string) {
 		Caroot = string("None")
 		Queue = string("None")
 		Queuepassword = string("None")
+		PasswordMinimumSize = int(6)
+		PasswordMustContainNumber = bool(false)
+		PasswordMustContainLetter = bool(false)
+		PasswordMustContainSpecial = bool(false)
+		UseJetstream = bool(true)
+		UseTLS = bool(false)
+		UserID = string("None")
+		UserPassword = string("None")
 		Encmessage = string("None")
 		configfile, configfileerr := os.Create("config.json")
 		if configfileerr == nil {
@@ -261,6 +278,33 @@ func myjson(action string) {
 			}
 			if k == "queuepassword" {
 				Queuepassword = v.(string)
+			}
+			if k == "passwordminimumsize" {
+				PasswordMinimumSize = v.(int)
+			}
+			if k == "passwordmustcontainnumber" {
+				PasswordMustContainNumber = v.(bool)
+			}
+			if k == "passwordmustcontainletter" {
+				PasswordMustContainLetter = v.(bool)
+			}
+			if k == "passwordmustcontainspecial" {
+				PasswordMustContainSpecial = v.(bool)
+			}
+			if k == "usejetstream" {
+				UseJetstream = v.(bool)
+			}
+			if k == "passwordmustcontainspecial" {
+				PasswordMustContainSpecial = v.(bool)
+			}
+			if k == "usetls" {
+				UseTLS = v.(bool)
+			}
+			if k == "userid" {
+				UserID = v.(string)
+			}
+			if k == "userpassword" {
+				UserPassword = v.(string)
 			}
 		}
 		MyCrypt("DECRYPT")
@@ -306,6 +350,10 @@ func MyCrypt(action string) {
 		Queue = newvalue
 		newvalue, _ = encrypt([]byte(Cipherkey), Queuepassword)
 		Queuepassword = newvalue
+		newvalue, _ = encrypt([]byte(Cipherkey), UserID)
+		UserID = newvalue
+		newvalue, _ = encrypt([]byte(Cipherkey), UserPassword)
+		UserPassword = newvalue
 
 	}
 	if action == "DECRYPTNOTNOW" {
@@ -317,6 +365,10 @@ func MyCrypt(action string) {
 		Queue = newvalue
 		newvalue, _ = decrypt([]byte(Queuepassword), Cipherkey)
 		Queuepassword = newvalue
+		newvalue, _ = decrypt([]byte(Cipherkey), UserID)
+		UserID = newvalue
+		newvalue, _ = decrypt([]byte(Cipherkey), UserPassword)
+		UserPassword = newvalue
 
 	}
 }
@@ -605,57 +657,7 @@ func editEntry(action string, value string) bool {
 			return false
 		}
 		valid4 := strings.Contains(value, "NONE")
-		if valid4 == false {package panes
-2
-​
-3
-import (
-4
-        "fyne.io/fyne/v2"
-5
-)
-6
-​
-7
-// Pane defines the data structure
-8
-type MyPane struct {
-9
-        Title, Intro string
-10
-        View         func(w fyne.Window) fyne.CanvasObject
-11
-        SupportWeb   bool
-12
-}
-13
-​
-14
-var (
-15
-        // Panes defines the metadata
-16
-        MyPanes = map[string]MyPane{
-17
-                "logon":    {"Logon", "", logonScreen, true},
-18
-                "messages": {"Messages", "", messagesScreen, true},
-19
-        }
-20
-​
-21
-        // PanesIndex  defines how our panes should be laid out in the index tree
-22
-        MyPanesIndex = map[string][]string{
-23
-                "": {"logon", "messages"},
-24
-        }
-25
-)
-26
-
+		if valid4 == false {
 			return false
 		}
 
