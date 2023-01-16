@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -30,6 +31,9 @@ import (
 	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// messages from nats
+var NatsMessages []string
 
 /*
  *	  These values are stored in the config.json file
@@ -42,8 +46,9 @@ var Queuepassword string // server message queue password
 // authenticate  tab
 var Password string     // encrypt file password
 var Passwordhash string // hash value of password
+
 //
-var PasswordMinimumSize int         // set minimum password size
+var PasswordMinimumSize string      // set minimum password size
 var PasswordMustContainNumber bool  // password must contain number
 var PasswordMustContainLetter bool  // password must contain letter
 var PasswordMustContainSpecial bool // password must contain special character
@@ -61,8 +66,9 @@ var UserPassword string // for UseTLS = false
  *	  These constants are set to establish a password schema for Local File Encryption and Queue password
  */
 
-const Cipherkey = "asuperstrong32bitpasswordgohere!" // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
-const PasswordDefault = "123456"                     // default password shipped with app
+const Cipherkey = "asuperstrong32bitpasswordgohere!"                                                 // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
+const PasswordDefault = "123456"                                                                     // default password shipped with app
+const MessageFormat = "HostName: = #HOSTNAME IPs : #IPS\n Message: #MESSAGE\n Date/Time #DATETIME\n" // default message for posting
 /*
  *	  Confignats is used to hold config.json fields
  */
@@ -71,7 +77,7 @@ type Confignats struct {
 	Jserver                     string // server url nats://333.333.333.333:port
 	Jqueue                      string // queue created for deployment
 	Jqueuepassword              string // queue password created for deployment
-	Jpasswordminimumsize        int    // set minimum password size
+	Jpasswordminimumsize        string // set minimum password size
 	Jpasswordmustcontainnumber  bool   // password must contain number
 	Jpasswordmustcontainletter  bool   // password must contain letter
 	Jpasswordmustcontainspecial bool   // password must contain special character
@@ -93,7 +99,7 @@ var (
 	// Panes defines the metadata
 	MyPanes = map[string]MyPane{
 		"password": {"Password", "", passwordScreen, true},
-		"settings": {"Settingd", "", settingsScreen, true},
+		"settings": {"Settings", "", settingsScreen, true},
 		"logon":    {"Logon", "", logonScreen, true},
 		"messages": {"Messages", "", messagesScreen, true},
 	}
@@ -175,7 +181,7 @@ func loadconfig() map[string]interface{} {
 		"caroot":                     string(Caroot),
 		"queue":                      string(Queue),
 		"queuepassword":              string(Queuepassword),
-		"passwordminimumsize":        int(PasswordMinimumSize),
+		"passwordminimumsize":        string(PasswordMinimumSize),
 		"passwordmustcontainnumber":  bool(PasswordMustContainNumber),
 		"passwordmustcontainletter":  bool(PasswordMustContainLetter),
 		"passwordmustcontainspecial": bool(PasswordMustContainSpecial),
@@ -220,7 +226,7 @@ func loadhash() map[string]interface{} {
  *	RETURNS			:
  *		         	: None
  */
-func myjson(action string) {
+func MyJson(action string) {
 
 	if action == "CREATE" {
 		log.Println("MyJson Create ", Password)
@@ -228,7 +234,7 @@ func myjson(action string) {
 		Caroot = string("None")
 		Queue = string("None")
 		Queuepassword = string("None")
-		PasswordMinimumSize = int(6)
+		PasswordMinimumSize = string("6")
 		PasswordMustContainNumber = bool(false)
 		PasswordMustContainLetter = bool(false)
 		PasswordMustContainSpecial = bool(false)
@@ -236,7 +242,7 @@ func myjson(action string) {
 		UseTLS = bool(false)
 		UserID = string("None")
 		UserPassword = string("None")
-		Encmessage = string("None")
+		EncMessage = string("None")
 		configfile, configfileerr := os.Create("config.json")
 		if configfileerr == nil {
 			enc := json.NewEncoder(configfile)
@@ -272,6 +278,7 @@ func myjson(action string) {
 			}
 			if k == "caroot" {
 				Caroot = v.(string)
+
 			}
 			if k == "queue" {
 				Queue = v.(string)
@@ -280,7 +287,7 @@ func myjson(action string) {
 				Queuepassword = v.(string)
 			}
 			if k == "passwordminimumsize" {
-				PasswordMinimumSize = v.(int)
+				PasswordMinimumSize = v.(string)
 			}
 			if k == "passwordmustcontainnumber" {
 				PasswordMustContainNumber = v.(bool)
@@ -308,6 +315,7 @@ func myjson(action string) {
 			}
 		}
 		MyCrypt("DECRYPT")
+		SaveCarootToFS()
 
 	}
 	if action == "SAVE" {
@@ -330,6 +338,39 @@ func myjson(action string) {
 }
 
 /*
+ *	FUNCTION		: SaveCarootToFS Public function thats save Caroot certificate to fs
+ *	DESCRIPTION		:
+ *		This function handles caroot certificate usage
+ *
+ *	PARAMETERS		        :
+
+ *
+ *	RETURNS			:
+ *		         	: None
+ */
+func SaveCarootToFS() {
+
+	ca, caerr := os.Open("./ca-nats.pem")
+	if caerr == nil {
+		os.Remove("./ca-nats.pem")
+		log.Println("SaveCarootToFS Deleting")
+	}
+	ca.Close()
+	cacreate, cacreateerr := os.Open("./ca-nats.pem")
+	if cacreateerr != nil {
+		os.Remove("./ca-nats.pem")
+		log.Println("SaveCarootToFS Deleting")
+		errwrite := os.WriteFile("./ca-nats.pem", []byte(Caroot), 0666)
+		if errwrite != nil {
+			log.Println("SaveCarootToFS Error Writing")
+		}
+
+	}
+	cacreate.Close()
+
+}
+
+/*
  *	FUNCTION		: MyCrypt Public function to be used by message encryption/decryption
  *	DESCRIPTION		:
  *		This function handles fiedd encryption/decryption of memory
@@ -341,7 +382,7 @@ func myjson(action string) {
  *		         	: None
  */
 func MyCrypt(action string) {
-	if action == "ENCRYPTNOTNOW" {
+	if action == "ENCRYPTNOW" {
 		var newvalue, _ = encrypt([]byte(Cipherkey), Server)
 		Server = newvalue
 		newvalue, _ = encrypt([]byte(Cipherkey), Caroot)
@@ -356,7 +397,7 @@ func MyCrypt(action string) {
 		UserPassword = newvalue
 
 	}
-	if action == "DECRYPTNOTNOW" {
+	if action == "DECRYPTNOW" {
 		var newvalue, _ = decrypt([]byte(Server), Cipherkey)
 		Server = newvalue
 		newvalue, _ = decrypt([]byte(Caroot), Cipherkey)
@@ -442,6 +483,44 @@ func MyHash(action string, hash string) {
 }
 
 /*
+ *	FUNCTION		: FormatMessage
+ *	DESCRIPTION		:
+ *		This function formats a message for sending
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:
+ */
+func FormatMessage(m string) string {
+	EncMessage = MessageFormat
+	name, err := os.Hostname()
+	if err != nil {
+		strings.Replace(EncMessage, "#HOSTNAME", "No Host Name", -1)
+
+	} else {
+		strings.Replace(EncMessage, "#HOSTNAME", name, -1)
+	}
+
+	addrs, err := net.LookupHost(name)
+	var addresstring = ""
+	if err != nil {
+		for _, a := range addrs {
+			addresstring += a
+			addresstring += ","
+		}
+		addresstring += "\n"
+		strings.Replace(EncMessage, "#IPS", "No IP", -1)
+
+	} else {
+		strings.Replace(EncMessage, "#IPS", addresstring, -1)
+	}
+
+	EncMessage += m
+	return EncMessage
+
+}
+
+/*
  *	FUNCTION		: NATSConnect
  *	DESCRIPTION		:
  *		This function connects to the nats server and populates mm in data using a go thread
@@ -452,26 +531,21 @@ func MyHash(action string, hash string) {
  */
 func NATSConnect() {
 
-	//nc, err := nats.Connect(Server, nats.RootCAs(strings.Trim(Caroot,"\r")))
-	// use jetstream
-	// save caroot in json to file
-	if UseJetstream == true {
+	if UseJetstream == false {
 		nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-		// delete caroot from file system after connect
+		nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+
 		if err == nil {
 
-			nc.Subscribe(Queue+">", func(msg *nats.Msg) {
-
-				log.Println("mymessage   - ", msg.Subject)
-				mymessage := msg.Subject + string(msg.Data)
-
-				AddMessage(mymessage)
+			nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+				NatsMessages = append(NatsMessages, string(msg.Data))
 
 			})
 		} else {
-			log.Println("mymessage error   - ", err)
+			log.Println("NATSConnect - ", err)
 		}
-	} else {
+	}
+	if UseJetstream == true {
 
 	}
 }
