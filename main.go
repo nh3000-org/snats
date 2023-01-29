@@ -5,6 +5,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -18,7 +19,6 @@ import (
 const preferenceCurrentTutorial = "currentTutorial"
 
 var topWindow fyne.Window
-
 
 func main() {
 	a := app.NewWithID("io.nh3000.nats")
@@ -71,6 +71,12 @@ func logLifecycle(a fyne.App) {
 		log.Println("Lifecycle: Started")
 	})
 	a.Lifecycle().SetOnStopped(func() {
+		ca, caerr := os.Open("./ca-nats.pem")
+		if caerr == nil {
+			os.Remove("./ca-nats.pem")
+			log.Println("DeleteCarootFS Deleting")
+		}
+		ca.Close()
 		log.Println("Lifecycle: Stopped")
 	})
 	a.Lifecycle().SetOnEnteredForeground(func() {
