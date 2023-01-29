@@ -2,6 +2,7 @@ package panes
 
 import (
 	"log"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -9,64 +10,94 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-var EncMessage string         // message strung
-const QueueCheckInterval = 30 // check interval in secinds
+var EncMessage MessageStore   // message store
+const QueueCheckInterval = 30 // check interval in seconds
+
 
 func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 	log.Println("messagesScreen")
-
+	SaveCarootToFS()
 	mymessage := widget.NewEntry()
 	mymessage.SetPlaceHolder("Enter Message For Encryption")
 
 	// try the password
 	smbutton := widget.NewButton("Send Message", func() {
 
-		EncMessage += FormatMessage(mymessage.Text)
-		// pub the message to queue
+		EncMessage = FormatMessage(mymessage.Text)
+		//AddMessage()
+		log.Println("messagesScreen publish" + mymessage.Text)
+		NATSPublish(EncMessage)
 
 	})
 
 	icon := widget.NewIcon(nil)
 	label := widget.NewLabel("Select An Item From The List")
 	hbox := container.NewHBox(icon, label)
-	list := widget.NewList(
+	List := widget.NewList(
 		func() int {
+			log.Println("list size" + strconv.Itoa(len(NatsMessages)))
 			return len(NatsMessages)
 		},
 		func() fyne.CanvasObject {
 			return container.NewHBox(widget.NewIcon(theme.DocumentIcon()), widget.NewLabel("Template Object"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-			if id == 5 || id == 6 {
-				item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id] + "\ntaller")
-			} else {
-				item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id])
-			}
+
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias)
+
+			//item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id])
+
 		},
 	)
-	list.OnSelected = func(id widget.ListItemID) {
-		label.SetText(NatsMessages[id])
+	List.OnSelected = func(id widget.ListItemID) {
+		var mytext = NatsMessages[id].MSmessage + "\n" + NatsMessages[id].MShostname + "\n" + NatsMessages[id].MSipadrs
+		label.SetText(mytext)
 		icon.SetResource(theme.DocumentIcon())
 	}
-	list.OnUnselected = func(id widget.ListItemID) {
+	List.OnUnselected = func(id widget.ListItemID) {
 		label.SetText("Select An Item From The List")
 		icon.SetResource(nil)
 	}
-	list.Select(125)
-	//list.SetItemHeight(5, 50)
-	//list.SetItemHeight(6, 50)
-	return container.NewCenter(container.NewVBox(
-		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+	//list.Select(125)
 
+	List.Resize(fyne.NewSize(500, 5000))
+	List.Refresh()
+
+	vertbox := container.NewVBox(
+
+		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		mymessage,
 
 		smbutton,
+	)
+	// save the server
+	sebutton := widget.NewButton("Security Erase", func() {
+		NATSErase()
+		NATSConnect()
+	})
+	if !LoggedOn {
+		mymessage.Disable()
+		smbutton.Disable()
+		sebutton.Disable()
+	}
+	return container.NewBorder(
+		//return container.NewCenter(container.NewVBox(
+		//return container.NewCenter(container.NewGridWithRows(
+		//widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
-		widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
+		//mymessage,
+
+		//smbutton,
+		vertbox,
+		sebutton,
+		nil,
+		nil,
+
+		//widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
 		// natsmessages is message q
 		//		container.NewVScroll(
-		container.NewHSplit(list, container.NewCenter(hbox)),
-	))
+		container.NewHSplit(List, container.NewCenter(hbox)),
+	)
 	//)
 }
