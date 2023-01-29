@@ -29,6 +29,10 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 	password := widget.NewEntry()
 	password.SetPlaceHolder("Enter Password For Encryption")
 	password.SetText(Password)
+	alias := widget.NewEntry()
+	alias.SetPlaceHolder("Enter User Alias")
+	alias.SetText(Alias)
+	alias.Disable()
 	server := widget.NewEntry()
 	server.SetPlaceHolder("URL: nats://xxxxxx:4332")
 	server.Disable()
@@ -64,11 +68,10 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 			// TODO: Properly handle error
 			iserrors = true
 		}
+		GoodPassword = true
 		if !iserrors {
 			MyJson("LOAD")
-			log.Println("save password config", Password)
-			log.Println("save password gui", password.Text)
-
+			alias.SetText(Alias)
 			server.SetText(Server)
 			caroot.SetText(Caroot)
 			queue.SetText(Queue)
@@ -77,12 +80,22 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 			server.Enable()
 			caroot.Enable()
 			queue.Enable()
+			alias.Enable()
 			queuepassword.Enable()
 		}
 
 	})
 	// save the server
-	ssbutton := widget.NewButton("Save Server", func() {
+	if !LoggedOn {
+		password.Enable()
+		server.Disable()
+		caroot.Disable()
+		alias.Disable()
+		queue.Disable()
+		queuepassword.Disable()
+
+	}
+	ssbutton := widget.NewButton("Logon", func() {
 		var iserrors bool
 		iserrors = false
 		if !iserrors == false {
@@ -91,7 +104,8 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 		if !iserrors == false {
 			iserrors = editEntry("CERTIFICATE", caroot.Text)
 		}
-		if !iserrors {
+		if !iserrors && GoodPassword {
+			Alias = alias.Text
 			Server = server.Text
 			Caroot = caroot.Text
 			Queue = queue.Text
@@ -99,6 +113,9 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 			password.Disable()
 			server.Disable()
 			caroot.Disable()
+			alias.Disable()
+			queue.Disable()
+			queuepassword.Disable()
 			// dont disable and allow for multiple queue entries
 			//queue.Disable()
 			//queuepassword.Disable()
@@ -106,18 +123,27 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 			MyJson("SAVE")
 
 			go NATSConnect()
+
+			LoggedOn = true
 		}
+	})
+	// security erase
+	sebutton := widget.NewButton("Security Erase", func() {
+		NATSErase()
+		NATSConnect()
 	})
 	return container.NewCenter(container.NewVBox(
 		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
 		password,
 		tpbutton,
+		alias,
 		server,
 		caroot,
 		queue,
 		queuepassword,
 		ssbutton,
+		sebutton,
 		container.NewHBox(
 			widget.NewHyperlink("newhorizons3000.og", parseURL("https://newhorizons3000.org/")),
 		),
