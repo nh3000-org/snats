@@ -127,7 +127,7 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 
 	return container.NewCenter(container.NewVBox(
 		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Enter Password", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle("Enter Password To Reset", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		password,
 		tpbutton,
 		passwordc1,
