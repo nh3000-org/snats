@@ -60,13 +60,8 @@ func settingsScreen(_ fyne.Window) fyne.CanvasObject {
 			Queue = queue.Text
 			Queuepassword = queuepassword.Text
 
-			server.Disable()
-			caroot.Disable()
-			// dont disable and allow for multiple queue entries
-			//queue.Disable()
-			//queuepassword.Disable()
 
-			MyJson("SAVE")
+			//MyJson("SAVE")
 
 			go NATSConnect()
 		}
