@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"github.com/nats-io/nats.go"
@@ -33,7 +34,11 @@ import (
 )
 
 // messages from nats
-var NatsMessages []string
+var NatsMessages []MessageStore
+
+// logon status
+var GoodPassword = false
+var LoggedOn bool = false
 
 /*
  *	  These values are stored in the config.json file
@@ -61,14 +66,15 @@ var UseTLS bool         // use TLS to Authenticate  else use userid /password
 var Caroot string       // for UseTLS = true CAROOT certificate for server authentication
 var UserID string       // for UseTLS = false
 var UserPassword string // for UseTLS = false
+var Alias string        // name the user
 
 /*
  *	  These constants are set to establish a password schema for Local File Encryption and Queue password
  */
 
-const Cipherkey = "asuperstrong32bitpasswordgohere!"                                                 // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
-const PasswordDefault = "123456"                                                                     // default password shipped with app
-const MessageFormat = "HostName: = #HOSTNAME IPs : #IPS\n Message: #MESSAGE\n Date/Time #DATETIME\n" // default message for posting
+const Cipherkey = "asuperstrong32bitpasswordgohere!" // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
+const PasswordDefault = "123456"                     // default password shipped with app
+//const MessageFormat = "HostName: = #HOSTNAME IPs : #IPS\n Message: #MESSAGE\n Date/Time #DATETIME\n" // default message for posting
 /*
  *	  Confignats is used to hold config.json fields
  */
@@ -86,6 +92,7 @@ type Confignats struct {
 	Jcaroot                     string // for UseTLS = true CAROOT certificate for server authentication
 	Juserid                     string // for UseTLS = false
 	Juserpassword               string // for UseTLS = false
+	jalias                      string // user alias
 }
 
 // Pane defines the data structure
@@ -95,32 +102,28 @@ type MyPane struct {
 	SupportWeb   bool
 }
 
+type MessageStore struct {
+	MSalias    string
+	MShostname string
+	MSipadrs   string
+	MSmessage  string
+}
+
 var (
 	// Panes defines the metadata
 	MyPanes = map[string]MyPane{
 		"password": {"Password", "", passwordScreen, true},
-		"settings": {"Settings", "", settingsScreen, true},
 		"logon":    {"Logon", "", logonScreen, true},
+		"settings": {"Settings", "", settingsScreen, true},
+
 		"messages": {"Messages", "", messagesScreen, true},
 	}
 
 	// PanesIndex  defines how our panes should be laid out in the index tree
 	MyPanesIndex = map[string][]string{
-		"": {"password", "settings", "logon", "messages"},
+		"": {"password", "logon", "settings", "messages"},
 	}
 )
-
-var MM []string
-var MMSize = 200
-
-func AddMessage(message string) {
-
-	MM = append(MM, message+"\n")
-	if len(MM) > MMSize {
-		MM = MM[:len(MM)-100]
-	}
-
-}
 
 /*
  *	FUNCTION		: parseURL
@@ -189,6 +192,7 @@ func loadconfig() map[string]interface{} {
 		"usetls":                     bool(UseTLS),
 		"userid":                     string(UserID),
 		"userpassword":               string(UserPassword),
+		"alias":                      string(Alias),
 	}
 	log.Println("loadconfig data", data)
 	return data
@@ -233,6 +237,7 @@ func MyJson(action string) {
 		Server = string("None")
 		Caroot = string("None")
 		Queue = string("None")
+		Alias = string("None")
 		Queuepassword = string("None")
 		PasswordMinimumSize = string("6")
 		PasswordMustContainNumber = bool(false)
@@ -242,7 +247,7 @@ func MyJson(action string) {
 		UseTLS = bool(false)
 		UserID = string("None")
 		UserPassword = string("None")
-		EncMessage = string("None")
+		EncMessage = FormatMessage("Connected")
 		configfile, configfileerr := os.Create("config.json")
 		if configfileerr == nil {
 			enc := json.NewEncoder(configfile)
@@ -279,6 +284,9 @@ func MyJson(action string) {
 			if k == "caroot" {
 				Caroot = v.(string)
 
+			}
+			if k == "alias" {
+				Alias = v.(string)
 			}
 			if k == "queue" {
 				Queue = v.(string)
@@ -359,7 +367,7 @@ func SaveCarootToFS() {
 	cacreate, cacreateerr := os.Open("./ca-nats.pem")
 	if cacreateerr != nil {
 		os.Remove("./ca-nats.pem")
-		log.Println("SaveCarootToFS Deleting")
+		log.Println("SaveCarootToFS caroot " + Caroot)
 		errwrite := os.WriteFile("./ca-nats.pem", []byte(Caroot), 0666)
 		if errwrite != nil {
 			log.Println("SaveCarootToFS Error Writing")
@@ -395,6 +403,8 @@ func MyCrypt(action string) {
 		UserID = newvalue
 		newvalue, _ = encrypt([]byte(Cipherkey), UserPassword)
 		UserPassword = newvalue
+		newvalue, _ = encrypt([]byte(Cipherkey), Alias)
+		Alias = newvalue
 
 	}
 	if action == "DECRYPTNOW" {
@@ -410,6 +420,8 @@ func MyCrypt(action string) {
 		UserID = newvalue
 		newvalue, _ = decrypt([]byte(Cipherkey), UserPassword)
 		UserPassword = newvalue
+		newvalue, _ = decrypt([]byte(Cipherkey), Alias)
+		Alias = newvalue
 
 	}
 }
@@ -489,34 +501,61 @@ func MyHash(action string, hash string) {
  *
  *	PARAMETERS		:
  *
- *	RETURNS		!	:
- */
-func FormatMessage(m string) string {
-	EncMessage = MessageFormat
+ *	RETURNS		!	:  MessageStore
+ type MessageStore struct {
+	MSalias		string
+	MShostname  string
+	MSipadrs    string
+	MSmessage   string
+
+
+}
+*/
+func FormatMessage(m string) MessageStore {
+	EncMessage := MessageStore{}
 	name, err := os.Hostname()
 	if err != nil {
-		strings.Replace(EncMessage, "#HOSTNAME", "No Host Name", -1)
+		EncMessage.MShostname = "No Host Name"
+		//strings.Replace(EncMessage, "#HOSTNAME", "No Host Name", -1)
 
 	} else {
-		strings.Replace(EncMessage, "#HOSTNAME", name, -1)
+		EncMessage.MShostname = name
+		//strings.Replace(EncMessage, "#HOSTNAME", name, -1)
 	}
 
 	addrs, err := net.LookupHost(name)
 	var addresstring = ""
-	if err != nil {
+	if err == nil {
 		for _, a := range addrs {
 			addresstring += a
 			addresstring += ","
 		}
-		addresstring += "\n"
-		strings.Replace(EncMessage, "#IPS", "No IP", -1)
+		EncMessage.MSipadrs = addresstring
 
 	} else {
-		strings.Replace(EncMessage, "#IPS", addresstring, -1)
+		EncMessage.MSipadrs = "No IP"
 	}
-
-	EncMessage += m
+	EncMessage.MSalias = Alias
+	EncMessage.MSmessage = m
+	//EncMessage += m
 	return EncMessage
+
+}
+
+/*
+ *	FUNCTION		: RetreiveMessage
+ *	DESCRIPTION		:
+ *		This function formats a message for reading
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:  MessageStore
+ type MessageStore struct {
+	MSalias		string
+	MShostname  string
+	MSipadrs    string
+	MSmessage   string
+
 
 }
 
@@ -528,24 +567,133 @@ func FormatMessage(m string) string {
  *	PARAMETERS		:
  *
  *	RETURNS		!	:
- */
+*/
 func NATSConnect() {
 
 	if UseJetstream == false {
-		nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-		nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
 
-		if err == nil {
+		//if err == nil {
+		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+		//	NatsMessages = append(NatsMessages, string(msg.Data))
 
-			nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
-				NatsMessages = append(NatsMessages, string(msg.Data))
+		//})
 
-			})
-		} else {
-			log.Println("NATSConnect - ", err)
-		}
+		//}
 	}
 	if UseJetstream == true {
+		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+		c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		if err == nil {
+			//nc.JetStream( "add " + Queue + "--subjects " + Queue + ".** --ack --max-msgs=-1 --max-bytes=-1 --max-age= 1y --storage file --retention limits --max-msg-size=-1 --discard=o")
+			//nc.JetStream( "add" + Queue + " MONITOR --filter '' --ack none --target " + NatsMessages[] + " --deliver last --replay instant")
+
+			//jsc := nc.JetStream( "consumer next myStream pull_consumer --count 1000")
+
+			c.Subscribe(Queue, func(msg MessageStore) {
+				//FormatMessage(msg)
+				log.Println("natsconnect alias: ", msg.MSalias)
+				log.Println("natsconnect message: ", msg.MSmessage)
+				log.Println("natsconnect ipaddrs: ", msg.MSipadrs)
+				log.Println("natsconnect host: ", msg.MShostname)
+				tonats := msg
+				NatsMessages = append(NatsMessages, tonats)
+
+				//wg.Done()
+			})
+
+			wg.Wait()
+		}
+
+	}
+}
+
+/*
+ *	FUNCTION		: NATSPublish
+ *	DESCRIPTION		:
+ *		This function publishes to the select queue
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:
+ */
+func NATSPublish(mm MessageStore) {
+	log.Println("publishing  ")
+	if UseJetstream == false {
+		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+
+		//if err == nil {
+		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+		//	NatsMessages = append(NatsMessages, string(msg.Data))
+
+		//})
+
+		//}
+	}
+	if UseJetstream == true {
+		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+		c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
+		if err == nil {
+			log.Println("publishing  ", mm)
+			c.Publish(Queue, mm)
+		} else {
+			log.Println("publish ", err)
+		}
+
+	}
+}
+
+/*
+ *	FUNCTION		: NATSErase
+ *	DESCRIPTION		:
+ *		This function erases a messages in queue
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:
+ */
+func NATSErase() {
+	log.Println("Erasing  ")
+	if UseJetstream == false {
+		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+
+		//if err == nil {
+		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+		//	NatsMessages = append(NatsMessages, string(msg.Data))
+
+		//})
+
+		//}
+	}
+	if UseJetstream == true {
+		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+		if err != nil {
+
+		}
+		js, _ := NC.JetStream()
+		EncMessage = FormatMessage("SECURITY ERASE")
+		//ERASE MESSAGE
+		log.Println("messagesScreen publish" + "SECURITY ERASE")
+		NATSPublish(EncMessage)
+		// Delete Consumer
+		js.DeleteConsumer(Queue, "MONITOR")
+		// delete memory store
+		NatsMessages = nil
+		// Delete Stream
+		js.DeleteStream(Queue)
+		js.AddStream(&nats.StreamConfig{
+			Name:     Queue,
+			Subjects: []string{Queue + ".*"},
+		})
+		// Create a Consumer
+		js.AddConsumer(Queue, &nats.ConsumerConfig{
+			Durable: "MONITOR",
+		})
 
 	}
 }
