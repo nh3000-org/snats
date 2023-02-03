@@ -1,6 +1,14 @@
 /*
-* Modify cipherkey for your installation
- */
+ *	PROGRAM		: settings.go
+ *	DESCRIPTION		:
+ *
+ *		This program handles loging on
+ *
+ *	PARAMETERS		:
+  *
+ *	RETURNS			:
+ *		Canvas
+*/
 
 package panes
 
@@ -8,6 +16,7 @@ import (
 	"log"
 
 	"os"
+	"os/exec"
 
 	"fyne.io/fyne/v2"
 
@@ -17,6 +26,17 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+/*
+ *	FUNCTION		: logonScren
+ *	DESCRIPTION		:
+ *		This function returns a logonwindow
+ *
+ *	PARAMETERS		:
+ *
+ *
+ *	RETURNS			:
+ *
+ */
 func logonScreen(_ fyne.Window) fyne.CanvasObject {
 
 	_, configfileerr := os.Stat("config.json")
@@ -68,8 +88,9 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 			// TODO: Properly handle error
 			iserrors = true
 		}
-		GoodPassword = true
+
 		if !iserrors {
+			PasswordValid = true
 			MyJson("LOAD")
 			alias.SetText(Alias)
 			server.SetText(Server)
@@ -82,11 +103,64 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 			queue.Enable()
 			alias.Enable()
 			queuepassword.Enable()
+
 		}
 
 	})
-	// save the server
-	if !LoggedOn {
+
+	SSbutton := widget.NewButton("Logon", func() {
+		if PasswordValid {
+			var iserrors bool
+			iserrors = false
+			if !iserrors == false {
+				iserrors = editEntry("URL", server.Text)
+			}
+			if !iserrors == false {
+				iserrors = editEntry("CERTIFICATE", caroot.Text)
+			}
+			if !iserrors && PasswordValid {
+
+				uuid, err := exec.Command("uuidgen").Output()
+				if err != nil {
+					log.Fatal(err)
+				}
+				NodeUUID = string(uuid)
+
+				Alias = alias.Text
+				Server = server.Text
+				Caroot = caroot.Text
+				Queue = queue.Text
+				Queuepassword = queuepassword.Text
+				password.Disable()
+				server.Disable()
+				caroot.Disable()
+				alias.Disable()
+				queue.Disable()
+				queuepassword.Disable()
+
+				// dont disable and alLoggedOnlow for multiple queue entries
+				//queue.Disable()
+				//queuepassword.Disable()
+
+				MyJson("SAVE")
+
+				go NATSConnect()
+
+				LoggedOn = true
+			}
+		}
+	})
+	// security erase
+	SEbutton := widget.NewButton("Security Erase", func() {
+		if PasswordValid {
+			NATSErase()
+			os.Exit(1)
+		}
+
+	})
+
+	// check for logon
+	if !PasswordValid {
 		password.Enable()
 		server.Disable()
 		caroot.Disable()
@@ -95,43 +169,6 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 		queuepassword.Disable()
 
 	}
-	ssbutton := widget.NewButton("Logon", func() {
-		var iserrors bool
-		iserrors = false
-		if !iserrors == false {
-			iserrors = editEntry("URL", server.Text)
-		}
-		if !iserrors == false {
-			iserrors = editEntry("CERTIFICATE", caroot.Text)
-		}
-		if !iserrors && GoodPassword {
-			Alias = alias.Text
-			Server = server.Text
-			Caroot = caroot.Text
-			Queue = queue.Text
-			Queuepassword = queuepassword.Text
-			password.Disable()
-			server.Disable()
-			caroot.Disable()
-			alias.Disable()
-			queue.Disable()
-			queuepassword.Disable()
-			// dont disable and allow for multiple queue entries
-			//queue.Disable()
-			//queuepassword.Disable()
-
-			MyJson("SAVE")
-
-			go NATSConnect()
-
-			LoggedOn = true
-		}
-	})
-	// security erase
-	sebutton := widget.NewButton("Security Erase", func() {
-		NATSErase()
-		NATSConnect()
-	})
 	return container.NewCenter(container.NewVBox(
 		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
@@ -142,10 +179,11 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 		caroot,
 		queue,
 		queuepassword,
-		ssbutton,
-		sebutton,
+		SSbutton,
+		SEbutton,
 		container.NewHBox(
-			widget.NewHyperlink("newhorizons3000.og", parseURL("https://newhorizons3000.org/")),
+			widget.NewHyperlink("newhorizons3000.org", parseURL("https://newhorizons3000.org/")),
+			widget.NewHyperlink("github.com", parseURL("https://github.com/nh3000-org/snats")),
 		),
 		widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
 	))
