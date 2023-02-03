@@ -2,7 +2,7 @@
  *	PROGRAM		: data.go
  *	DESCRIPTION		:
  *
- *		This program handles field definitions.
+ *		This program handles field definitions and common functions
  *
  *	PARAMETERS		:
   *
@@ -25,6 +25,8 @@ import (
 	"net"
 	"net/url"
 	"os"
+
+	"strconv"
 	"strings"
 	"sync"
 
@@ -32,13 +34,18 @@ import (
 	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
 )
-
+// version
+const Version = "snats-beta"
 // messages from nats
 var NatsMessages []MessageStore
 
 // logon status
-var GoodPassword = false
+
 var LoggedOn bool = false
+var PasswordValid bool = false
+
+// error message
+var ErrorMessage = "None"
 
 /*
  *	  These values are stored in the config.json file
@@ -67,6 +74,7 @@ var Caroot string       // for UseTLS = true CAROOT certificate for server authe
 var UserID string       // for UseTLS = false
 var UserPassword string // for UseTLS = false
 var Alias string        // name the user
+var NodeUUID string     // nuuid created on logon
 
 /*
  *	  These constants are set to establish a password schema for Local File Encryption and Queue password
@@ -93,6 +101,7 @@ type Confignats struct {
 	Juserid                     string // for UseTLS = false
 	Juserpassword               string // for UseTLS = false
 	jalias                      string // user alias
+	Jnodeuuid                   string // node id created on logon
 }
 
 // Pane defines the data structure
@@ -107,6 +116,7 @@ type MessageStore struct {
 	MShostname string
 	MSipadrs   string
 	MSmessage  string
+	MSnodeuuid string
 }
 
 var (
@@ -178,7 +188,7 @@ func dumpglobals(from string) {
  *		map     	: Map of interface with encrypted field values
  */
 func loadconfig() map[string]interface{} {
-	log.Println("loadconfig Password", Password)
+	//log.Println("loadconfig Password", Password)
 	data := map[string]interface{}{
 		"server":                     string(Server),
 		"caroot":                     string(Caroot),
@@ -193,8 +203,9 @@ func loadconfig() map[string]interface{} {
 		"userid":                     string(UserID),
 		"userpassword":               string(UserPassword),
 		"alias":                      string(Alias),
+		"nodeuuid":                   string(NodeUUID),
 	}
-	log.Println("loadconfig data", data)
+	//log.Println("loadconfig data", data)
 	return data
 }
 
@@ -210,34 +221,36 @@ func loadconfig() map[string]interface{} {
  *		map     	: Map of interface with hash file for password checking
  */
 func loadhash() map[string]interface{} {
-	log.Println("loadhash Password hash", Passwordhash)
-	log.Println("loadhash Cipherkey", Cipherkey)
+	//log.Println("loadhash Password hash", Passwordhash)
+	//log.Println("loadhash Cipherkey", Cipherkey)
 	data := map[string]interface{}{
 		"passwordhash": string(Passwordhash),
 	}
-	log.Println("loadhash data", data)
+	//log.Println("loadhash data", data)
 	return data
 }
 
 /*
- *	FUNCTION		: myjsonUasswordMustContainSpecial
+ *	FUNCTION		: myjson
  *	DESCRIPTION		:
  *		This function handles file actions for config.json to load memory
  *
  *	PARAMETERS		        :
  *		action string   	: CREATE, LOAD or SAVE encrypted fields
- *
+
+
  *	RETURNS			:
  *		         	: None
  */
 func MyJson(action string) {
 
 	if action == "CREATE" {
-		log.Println("MyJson Create ", Password)
+		//log.Println("MyJson Create ", Password)
 		Server = string("None")
 		Caroot = string("None")
 		Queue = string("None")
 		Alias = string("None")
+
 		Queuepassword = string("None")
 		PasswordMinimumSize = string("6")
 		PasswordMustContainNumber = bool(false)
@@ -248,12 +261,14 @@ func MyJson(action string) {
 		UserID = string("None")
 		UserPassword = string("None")
 		EncMessage = FormatMessage("Connected")
+
 		configfile, configfileerr := os.Create("config.json")
 		if configfileerr == nil {
 			enc := json.NewEncoder(configfile)
 
 			MyCrypt("ENCRYPT")
 			enc.Encode(loadconfig())
+			MyCrypt("DECRYPT")
 		}
 		configfile.Close()
 	}
@@ -287,6 +302,9 @@ func MyJson(action string) {
 			}
 			if k == "alias" {
 				Alias = v.(string)
+			}
+			if k == "nodeuuid" {
+				NodeUUID = v.(string)
 			}
 			if k == "queue" {
 				Queue = v.(string)
@@ -338,6 +356,7 @@ func MyJson(action string) {
 
 			MyCrypt("ENCRYPT")
 			enc.Encode(loadconfig())
+			MyCrypt("DECRYPT")
 
 		}
 
@@ -361,13 +380,13 @@ func SaveCarootToFS() {
 	ca, caerr := os.Open("./ca-nats.pem")
 	if caerr == nil {
 		os.Remove("./ca-nats.pem")
-		log.Println("SaveCarootToFS Deleting")
+		//log.Println("SaveCarootToFS Deleting")
 	}
 	ca.Close()
 	cacreate, cacreateerr := os.Open("./ca-nats.pem")
 	if cacreateerr != nil {
 		os.Remove("./ca-nats.pem")
-		log.Println("SaveCarootToFS caroot " + Caroot)
+		//log.Println("SaveCarootToFS caroot " + Caroot)
 		errwrite := os.WriteFile("./ca-nats.pem", []byte(Caroot), 0666)
 		if errwrite != nil {
 			log.Println("SaveCarootToFS Error Writing")
@@ -390,7 +409,7 @@ func SaveCarootToFS() {
  *		         	: None
  */
 func MyCrypt(action string) {
-	if action == "ENCRYPTNOW" {
+	if action == "ENCRYPTnow" {
 		var newvalue, _ = encrypt([]byte(Cipherkey), Server)
 		Server = newvalue
 		newvalue, _ = encrypt([]byte(Cipherkey), Caroot)
@@ -405,9 +424,11 @@ func MyCrypt(action string) {
 		UserPassword = newvalue
 		newvalue, _ = encrypt([]byte(Cipherkey), Alias)
 		Alias = newvalue
+		newvalue, _ = encrypt([]byte(Cipherkey), NodeUUID)
+		NodeUUID = newvalue
 
 	}
-	if action == "DECRYPTNOW" {
+	if action == "DECRYPTnow" {
 		var newvalue, _ = decrypt([]byte(Server), Cipherkey)
 		Server = newvalue
 		newvalue, _ = decrypt([]byte(Caroot), Cipherkey)
@@ -422,7 +443,8 @@ func MyCrypt(action string) {
 		UserPassword = newvalue
 		newvalue, _ = decrypt([]byte(Cipherkey), Alias)
 		Alias = newvalue
-
+		newvalue, _ = decrypt([]byte(Cipherkey), NodeUUID)
+		NodeUUID = newvalue
 	}
 }
 
@@ -441,14 +463,14 @@ func MyCrypt(action string) {
 func MyHash(action string, hash string) {
 
 	if action == "CREATE" {
-		log.Println("create Hash", hash)
+		//log.Println("create Hash", hash)
 
 		confighash, confighasherr := os.Create("config.hash")
 		if confighasherr == nil {
 			enc := json.NewEncoder(confighash)
 			//cipherKey := []byte("!99099jjhhnniikjkjilhh7dDDDkillp") //32 bit key for AES-256
 
-			log.Println("myhash save config", loadhash())
+			//log.Println("myhash save config", loadhash())
 			enc.Encode(loadhash())
 		}
 		confighash.Close()
@@ -485,7 +507,7 @@ func MyHash(action string, hash string) {
 
 		if se == nil {
 			enc := json.NewEncoder(sc)
-			log.Println("myhash save", loadhash())
+			//log.Println("myhash save", loadhash())
 			enc.Encode(loadhash())
 
 		}
@@ -502,15 +524,8 @@ func MyHash(action string, hash string) {
  *	PARAMETERS		:
  *
  *	RETURNS		!	:  MessageStore
- type MessageStore struct {
-	MSalias		string
-	MShostname  string
-	MSipadrs    string
-	MSmessage   string
 
-
-}
-*/
+ */
 func FormatMessage(m string) MessageStore {
 	EncMessage := MessageStore{}
 	name, err := os.Hostname()
@@ -522,6 +537,22 @@ func FormatMessage(m string) MessageStore {
 		EncMessage.MShostname = name
 		//strings.Replace(EncMessage, "#HOSTNAME", name, -1)
 	}
+	ifas, err := net.Interfaces()
+	if err == nil {
+
+		var as []string
+		for _, ifa := range ifas {
+			a := ifa.HardwareAddr.String()
+			if a != "" {
+				as = append(as, a)
+			}
+		}
+		for i, s := range as {
+			EncMessage.MShostname += " mac " + strconv.Itoa(i) + " - " + s + ","
+		}
+
+	}
+	EncMessage.MSnodeuuid = NodeUUID
 
 	addrs, err := net.LookupHost(name)
 	var addresstring = ""
@@ -543,31 +574,14 @@ func FormatMessage(m string) MessageStore {
 }
 
 /*
- *	FUNCTION		: RetreiveMessage
- *	DESCRIPTION		:
- *		This function formats a message for reading
- *
- *	PARAMETERS		:
- *
- *	RETURNS		!	:  MessageStore
- type MessageStore struct {
-	MSalias		string
-	MShostname  string
-	MSipadrs    string
-	MSmessage   string
-
-
-}
-
-/*
  *	FUNCTION		: NATSConnect
  *	DESCRIPTION		:
  *		This function connects to the nats server and populates mm in data using a go thread
  *
  *	PARAMETERS		:
- *
+ *e joi
  *	RETURNS		!	:
-*/
+ */
 func NATSConnect() {
 
 	if UseJetstream == false {
@@ -576,7 +590,7 @@ func NATSConnect() {
 		//if err == nil {
 		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
 		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
-		//	NatsMessages = append(NatsMessages, string(msg.Data))
+		//	NatsMessages = ae joippend(NatsMessages, string(msg.Data))
 
 		//})
 
@@ -595,10 +609,10 @@ func NATSConnect() {
 
 			c.Subscribe(Queue, func(msg MessageStore) {
 				//FormatMessage(msg)
-				log.Println("natsconnect alias: ", msg.MSalias)
-				log.Println("natsconnect message: ", msg.MSmessage)
-				log.Println("natsconnect ipaddrs: ", msg.MSipadrs)
-				log.Println("natsconnect host: ", msg.MShostname)
+				//log.Println("natsconnect alias: ", msg.MSalias)
+				//log.Println("natsconnect message: ", msg.MSmessage)
+				//log.Println("natsconnect ipaddrs: ", msg.MSipadrs)
+				//log.Println("natsconnect host: ", msg.MShostname)
 				tonats := msg
 				NatsMessages = append(NatsMessages, tonats)
 
@@ -621,7 +635,7 @@ func NATSConnect() {
  *	RETURNS		!	:
  */
 func NATSPublish(mm MessageStore) {
-	log.Println("publishing  ")
+	//log.Println("publishing  ")
 	if UseJetstream == false {
 		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
 
@@ -638,7 +652,7 @@ func NATSPublish(mm MessageStore) {
 		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
 		c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
 		if err == nil {
-			log.Println("publishing  ", mm)
+			//log.Println("publishing  ", mm)
 			c.Publish(Queue, mm)
 		} else {
 			log.Println("publish ", err)
@@ -852,15 +866,24 @@ func comparePasswords(hashedPwd string, plainPwd []byte) bool {
  */
 func editEntry(action string, value string) bool {
 
+	if action == "cvtbool" {
+		if value == "True" {
+			return true
+		}
+		if value == "False" {
+			return false
+		}
+
+	}
+
 	if action == "URL" {
 
 		valid := strings.Contains(value, "nats://")
 		if valid == false {
-			return false
-		}
-		valid1 := strings.Contains(value, "NATS://")
-		if valid1 == false {
-			return false
+			valid1 := strings.Contains(value, "NATS://")
+			if valid1 == false {
+				return false
+			}
 		}
 		valid2 := strings.Contains(value, ".")
 		if valid2 == false {
@@ -895,6 +918,15 @@ func editEntry(action string, value string) bool {
 		valid2 := strings.Contains(value, "-----END CERTIFICATE-----")
 		if valid2 == false {
 			return false
+		}
+	}
+	if action == "TRUEFALSE" {
+		valid := strings.Contains(value, "True")
+		if valid == false {
+			valid2 := strings.Contains(value, "False")
+			if valid2 == false {
+				return false
+			}
 		}
 	}
 	return true
