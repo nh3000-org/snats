@@ -25,6 +25,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+/*
+ *	FUNCTION		: passwordScren
+ *	DESCRIPTION		:
+ *		This function returns a settings window
+ *
+ *	PARAMETERS		:
+ *
+ *
+ *	RETURNS			:
+ *
+ */
 func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 
 	_, configfileerr := os.Stat("config.json")
