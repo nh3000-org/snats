@@ -1,6 +1,14 @@
 /*
-* Modify logon cipherkey for your installation
- */
+ *	PROGRAM		: mai.go
+ *	DESCRIPTION		:
+ *
+ *		This program is the control for app.
+ *
+ *	PARAMETERS		:
+  *
+ *	RETURNS			:
+ *
+*/
 package main
 
 import (
@@ -16,17 +24,28 @@ import (
 	"github.com/nh3000-org/snats/panes"
 )
 
-const preferenceCurrentTutorial = "currentTutorial"
+const preferenceCurrentApplication = "currentApplication"
 
-var topWindow fyne.Window
+var TopWindow fyne.Window
 
+/*
+ *	FUNCTION		: main
+ *	DESCRIPTION		:
+ *		Handle user interface
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *
+ */
 func main() {
 	a := app.NewWithID("io.nh3000.nats")
 	a.SetIcon(theme.FyneLogo())
 	makeTray(a)
 	logLifecycle(a)
-	w := a.NewWindow("Secure NATS")
-	topWindow = w
+	w := a.NewWindow("Secure NATS BETA")
+	TopWindow = w
 
 	w.SetMaster()
 
@@ -37,11 +56,11 @@ func main() {
 	setTutorial := func(t panes.MyPane) {
 		if fyne.CurrentDevice().IsMobile() {
 			child := a.NewWindow(t.Title)
-			topWindow = child
-			child.SetContent(t.View(topWindow))
+			TopWindow = child
+			child.SetContent(t.View(TopWindow))
 			child.Show()
 			child.SetOnClosed(func() {
-				topWindow = w
+				TopWindow = w
 			})
 			return
 		}
@@ -66,10 +85,19 @@ func main() {
 	w.ShowAndRun()
 }
 
+/*
+ *	FUNCTION		: logLifecycle
+ *	DESCRIPTION		:
+ *		Handle remove ca-nats.pem fron file system on exit
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *
+ */
 func logLifecycle(a fyne.App) {
-	a.Lifecycle().SetOnStarted(func() {
-		log.Println("Lifecycle: Started")
-	})
+
 	a.Lifecycle().SetOnStopped(func() {
 		ca, caerr := os.Open("./ca-nats.pem")
 		if caerr == nil {
@@ -77,16 +105,22 @@ func logLifecycle(a fyne.App) {
 			log.Println("DeleteCarootFS Deleting")
 		}
 		ca.Close()
-		log.Println("Lifecycle: Stopped")
+
 	})
-	a.Lifecycle().SetOnEnteredForeground(func() {
-		log.Println("Lifecycle: Entered Foreground")
-	})
-	a.Lifecycle().SetOnExitedForeground(func() {
-		log.Println("Lifecycle: Exited Foreground")
-	})
+
 }
 
+/*
+ *	FUNCTION		: makeTray
+ *	DESCRIPTION		:
+ *		Create the system tray interface
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *
+ */
 func makeTray(a fyne.App) {
 	if desk, ok := a.(desktop.App); ok {
 		h := fyne.NewMenuItem("Hello", func() {})
@@ -100,10 +134,32 @@ func makeTray(a fyne.App) {
 	}
 }
 
-func unsupportedTutorial(t panes.MyPane) bool {
+/*
+ *	FUNCTION		: unsupportedApplication
+ *	DESCRIPTION		:
+ *		Check interface
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *		bool if not valid
+ */
+func unsupportedApplication(t panes.MyPane) bool {
 	return !t.SupportWeb && fyne.CurrentDevice().IsBrowser()
 }
 
+/*
+ *	FUNCTION		: makeNav
+ *	DESCRIPTION		:
+ *		Create interface canvas
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *		Applicatio canvas
+ */
 func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.CanvasObject {
 	a := fyne.CurrentApp()
 
@@ -126,7 +182,7 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 				return
 			}
 			obj.(*widget.Label).SetText(t.Title)
-			if unsupportedTutorial(t) {
+			if unsupportedApplication(t) {
 				obj.(*widget.Label).TextStyle = fyne.TextStyle{Italic: true}
 			} else {
 				obj.(*widget.Label).TextStyle = fyne.TextStyle{}
@@ -134,17 +190,17 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 		},
 		OnSelected: func(uid string) {
 			if t, ok := panes.MyPanes[uid]; ok {
-				if unsupportedTutorial(t) {
+				if unsupportedApplication(t) {
 					return
 				}
-				a.Preferences().SetString(preferenceCurrentTutorial, uid)
+				a.Preferences().SetString(preferenceCurrentApplication, uid)
 				setTutorial(t)
 			}
 		},
 	}
 
 	if loadPrevious {
-		currentPref := a.Preferences().StringWithFallback(preferenceCurrentTutorial, "welcome")
+		currentPref := a.Preferences().StringWithFallback(preferenceCurrentApplication, "welcome")
 		tree.Select(currentPref)
 	}
 
@@ -160,6 +216,17 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 	return container.NewBorder(nil, themes, nil, nil, tree)
 }
 
+/*
+ *	FUNCTION		: shortcutFocused
+ *	DESCRIPTION		:
+ *		Handle shortcuts to clipboard
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *
+ */
 func shortcutFocused(s fyne.Shortcut, w fyne.Window) {
 	switch sh := s.(type) {
 	case *fyne.ShortcutCopy:
