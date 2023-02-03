@@ -1,25 +1,46 @@
+/*
+ *	PROGRAM		: messages.go
+ *	DESCRIPTION		:
+ *
+ *		This program handles setting and recieving messages
+ *
+ *	PARAMETERS		:
+  *
+ *	RETURNS			:
+ *		Canvas
+*/
 package panes
 
 import (
 	"log"
-	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+
+	//	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 var EncMessage MessageStore   // message store
 const QueueCheckInterval = 30 // check interval in seconds
-
-
+/*
+ *	FUNCTION		: messagesScren
+ *	DESCRIPTION		:
+ *		This function returns a message window
+ *
+ *	PARAMETERS		:
+ *
+ *
+ *	RETURNS			:
+ *
+ */
 func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
-	log.Println("messagesScreen")
-	SaveCarootToFS()
-	mymessage := widget.NewEntry()
+	//SaveCarootToFS()
+	mymessage := widget.NewMultiLineEntry()
 	mymessage.SetPlaceHolder("Enter Message For Encryption")
+	mymessage.SetMinRowsVisible(5)
 
 	// try the password
 	smbutton := widget.NewButton("Send Message", func() {
@@ -36,7 +57,6 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	hbox := container.NewHBox(icon, label)
 	List := widget.NewList(
 		func() int {
-			log.Println("list size" + strconv.Itoa(len(NatsMessages)))
 			return len(NatsMessages)
 		},
 		func() fyne.CanvasObject {
@@ -46,12 +66,10 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias)
 
-			//item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id])
-
 		},
 	)
 	List.OnSelected = func(id widget.ListItemID) {
-		var mytext = NatsMessages[id].MSmessage + "\n" + NatsMessages[id].MShostname + "\n" + NatsMessages[id].MSipadrs
+		var mytext = NatsMessages[id].MSmessage + "\n" + NatsMessages[id].MShostname + "\n" + NatsMessages[id].MSipadrs + "\n" + NatsMessages[id].MSnodeuuid
 		label.SetText(mytext)
 		icon.SetResource(theme.DocumentIcon())
 	}
@@ -59,37 +77,36 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		label.SetText("Select An Item From The List")
 		icon.SetResource(nil)
 	}
-	//list.Select(125)
 
 	List.Resize(fyne.NewSize(500, 5000))
 	List.Refresh()
 
-	vertbox := container.NewVBox(
+	topbox := container.NewBorder(
 
 		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		mymessage,
-
 		smbutton,
+		nil,
+		nil,
+		mymessage,
 	)
 	// save the server
 	sebutton := widget.NewButton("Security Erase", func() {
+
 		NATSErase()
 		NATSConnect()
+
 	})
+
 	if !LoggedOn {
 		mymessage.Disable()
 		smbutton.Disable()
 		sebutton.Disable()
+		ErrorMessage = "Please Logon"
+		//ErrorScreen(TopWindow)
 	}
 	return container.NewBorder(
-		//return container.NewCenter(container.NewVBox(
-		//return container.NewCenter(container.NewGridWithRows(
-		//widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
-		//mymessage,
-
-		//smbutton,
-		vertbox,
+		topbox,
 		sebutton,
 		nil,
 		nil,
