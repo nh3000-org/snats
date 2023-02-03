@@ -1,81 +1,101 @@
 /*
-* Modify cipherkey for your installation
- */
+ *	PROGRAM		: settings.go
+ *	DESCRIPTION		:
+ *
+ *		This program handles option definitions.
+ *
+ *	PARAMETERS		:
+  *
+ *	RETURNS			:
+ *		Canvas
+*/
 
 package panes
 
 import (
-	"os"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
+/*
+ *	FUNCTION		: settingsScreen
+ *	DESCRIPTION		:
+ *		Interface for changing settings
+ *
+ *	PARAMETERS		:
+ *		        	:
+ *
+ *	RETURNS			:
+ *
+ */
 func settingsScreen(_ fyne.Window) fyne.CanvasObject {
 
-	_, configfileerr := os.Stat("config.json")
-	if configfileerr != nil {
+	pllabel := widget.NewLabel("Password Length")
+	pl := widget.NewRadioGroup([]string{"6", "8", "12"}, func(string) {})
+	pl.Horizontal = true
+	pl.SetSelected("6")
 
-		MyJson("CREATE")
-	}
-	MyJson("LOAD")
+	mcletterlabel := widget.NewLabel("Password Must Contain Letter")
+	mcletter := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
+	mcletter.Horizontal = true
+	mcletter.SetSelected("False")
 
-	server := widget.NewEntry()
-	server.SetPlaceHolder("URL: nats://xxxxxx:4332")
-	server.Disable()
-	caroot := widget.NewMultiLineEntry()
-	caroot.SetPlaceHolder("CAROOT For nats://xxxxxx:4332")
-	caroot.Disable()
-	queue := widget.NewEntry()
-	queue.SetPlaceHolder("Message Queue for Pub/Sub")
-	queue.Disable()
-	queuepassword := widget.NewEntry()
-	queuepassword.SetPlaceHolder("Message Queue Password")
-	queuepassword.Disable()
-	MyJson("LOAD")
+	mcnumberlabel := widget.NewLabel("Password Must Contain Number")
+	mcnumber := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
+	mcnumber.Horizontal = true
+	mcnumber.SetSelected("False")
 
-	server.SetText(Server)
-	caroot.SetText(Caroot)
-	queue.SetText(Queue)
-	queuepassword.SetText(Queuepassword)
+	mcspeciallabel := widget.NewLabel("Password Must Contain Special")
+	mcspecial := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
+	mcspecial.Horizontal = true
+	mcspecial.SetSelected("False")
 
-	server.Enable()
-	caroot.Enable()
-	queue.Enable()
-	queuepassword.Enable()
+	usetlslabel := widget.NewLabel("Use TLS Authorization")
+	usetls := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
+	usetls.Horizontal = true
+	usetls.SetSelected("False")
 
-	ssbutton := widget.NewButton("Connect To Server", func() {
-		var iserrors bool
-		iserrors = false
-		if !iserrors == false {
-			iserrors = editEntry("URL", server.Text)
-		}
-		if !iserrors == false {
-			iserrors = editEntry("CERTIFICATE", caroot.Text)
-		}
-		if !iserrors {
-			Server = server.Text
-			Caroot = caroot.Text
-			Queue = queue.Text
-			Queuepassword = queuepassword.Text
+	usejslabel := widget.NewLabel("Use Jetstream")
+	usejs := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
+	usejs.Horizontal = true
+	usejs.SetSelected("True")
 
+	UseJetstream = editEntry("TRUEFALSE", usejs.Selected)
+	UseTLS = editEntry("TRUEFALSE", usetls.Selected)
+	PasswordMustContainNumber = editEntry("TRUEFALSE", mcnumber.Selected)
+	PasswordMinimumSize = pl.Selected
+	PasswordMustContainLetter = editEntry("TRUEFALSE", mcletter.Selected)
+	PasswordMustContainSpecial = editEntry("TRUEFALSE", mcspecial.Selected)
 
-			//MyJson("SAVE")
+	ssbutton := widget.NewButton("Save Settings", func() {
 
-			go NATSConnect()
+		if PasswordValid {
+
+			MyJson("SAVE")
+
 		}
 	})
-	return container.NewCenter(container.NewVBox(
-		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
-		server,
-		caroot,
-		queue,
-		queuepassword,
+	return container.NewCenter(container.NewVBox(
+		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+
+		pllabel,
+		pl,
+		mcletterlabel,
+		mcletter,
+		mcnumberlabel,
+		mcnumber,
+		mcspeciallabel,
+		mcspecial,
+		usetlslabel,
+		usetls,
+		usejslabel,
+		usejs,
+
 		ssbutton,
 		container.NewHBox(
-			widget.NewHyperlink("newhorizons3000.og", parseURL("https://newhorizons3000.org/")),
+			widget.NewHyperlink("newhorizons3000.org", parseURL("https://newhorizons3000.org/")),
 		),
 		widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
 	))
