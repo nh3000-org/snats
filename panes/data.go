@@ -18,9 +18,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"io/ioutil"
+
 	"log"
 	"net"
 	"net/url"
@@ -28,14 +27,21 @@ import (
 
 	"strconv"
 	"strings"
-	"sync"
+
+	"github.com/nats-io/nats.go"
+
+	"time"
 
 	"fyne.io/fyne/v2"
-	"github.com/nats-io/nats.go"
+	"fyne.io/fyne/v2/storage"
+
+	//"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
 )
+
 // version
 const Version = "snats-beta"
+
 // messages from nats
 var NatsMessages []MessageStore
 
@@ -87,21 +93,20 @@ const PasswordDefault = "123456"                     // default password shipped
  *	  Confignats is used to hold config.json fields
  */
 type Confignats struct {
-	//jlkj
-	Jserver                     string // server url nats://333.333.333.333:port
-	Jqueue                      string // queue created for deployment
-	Jqueuepassword              string // queue password created for deployment
-	Jpasswordminimumsize        string // set minimum password size
-	Jpasswordmustcontainnumber  bool   // password must contain number
-	Jpasswordmustcontainletter  bool   // password must contain letter
-	Jpasswordmustcontainspecial bool   // password must contain special character
-	Jusejetstream               bool   // if set to true uses jetstream protocol otherwise regular pub/sub
-	Jusetls                     string // use TLS to Authenticate  else use userid /password
-	Jcaroot                     string // for UseTLS = true CAROOT certificate for server authentication
-	Juserid                     string // for UseTLS = false
-	Juserpassword               string // for UseTLS = false
-	jalias                      string // user alias
-	Jnodeuuid                   string // node id created on logon
+	Jserver                     string `json:"server"`                     // server url nats://333.333.333.333:port
+	Jqueue                      string `json:"queue"`                      // queue created for deployment
+	Jqueuepassword              string `json:"queuepassword"`              // queue password created for deployment
+	Jpasswordminimumsize        string `json:"passwordminimumsize"`        // set minimum password size
+	Jpasswordmustcontainnumber  bool   `json:"passwordmustcontainnumber"`  // password must contain number
+	Jpasswordmustcontainletter  bool   `json:"passwordmustcontainletter"`  // password must contain letter
+	Jpasswordmustcontainspecial bool   `json:"passwordmustcontainspecial"` // password must contain special character
+	Jusejetstream               bool   `json:"usejetstream"`               // if set to true uses jetstream protocol otherwise regular pub/sub
+	Jusetls                     bool   `json:"usetls"`                     // use TLS to Authenticate  else use userid /password
+	Jcaroot                     string `json:"caroot"`                     // for UseTLS = true CAROOT certificate for server authentication
+	Juserid                     string `json:"userid"`                     // for UseTLS = false
+	Juserpassword               string `json:"userpassword"`               // for UseTLS = false
+	Jalias                      string `json:"alias"`                      // user alias
+	Jnodeuuid                   string `json:"nodeuuid"`                   // node id created on logon
 }
 
 // Pane defines the data structure
@@ -134,6 +139,27 @@ var (
 		"": {"password", "logon", "settings", "messages"},
 	}
 )
+
+/*
+ *	FUNCTION		: DataStore
+ *	DESCRIPTION		:
+ *		Handle access to storage
+ *
+ *	PARAMETERS		: filename
+ *		        	:
+ *
+ *	RETURNS			: uri
+ *
+ */
+func DataStore(myfile string) fyne.URI {
+
+	DataLocation, dlerr := storage.Child(fyne.CurrentApp().Storage().RootURI(), myfile)
+	if dlerr != nil {
+		log.Println("DataStore error ", dlerr)
+	}
+
+	return DataLocation
+}
 
 /*
  *	FUNCTION		: parseURL
@@ -177,60 +203,6 @@ func dumpglobals(from string) {
 }
 
 /*
- *	FUNCTION		: loadconfig
- *	DESCRIPTION		:
- *		This function loads the json config file
- *
- *	PARAMETERS		:
- *		        	: None
- *
- *	RETURNS			:
- *		map     	: Map of interface with encrypted field values
- */
-func loadconfig() map[string]interface{} {
-	//log.Println("loadconfig Password", Password)
-	data := map[string]interface{}{
-		"server":                     string(Server),
-		"caroot":                     string(Caroot),
-		"queue":                      string(Queue),
-		"queuepassword":              string(Queuepassword),
-		"passwordminimumsize":        string(PasswordMinimumSize),
-		"passwordmustcontainnumber":  bool(PasswordMustContainNumber),
-		"passwordmustcontainletter":  bool(PasswordMustContainLetter),
-		"passwordmustcontainspecial": bool(PasswordMustContainSpecial),
-		"usejetstream":               bool(UseJetstream),
-		"usetls":                     bool(UseTLS),
-		"userid":                     string(UserID),
-		"userpassword":               string(UserPassword),
-		"alias":                      string(Alias),
-		"nodeuuid":                   string(NodeUUID),
-	}
-	//log.Println("loadconfig data", data)
-	return data
-}
-
-/*
- *	FUNCTION		: loadhash
- *	DESCRIPTION		:
- *		This function loads the json hash file
- *
- *	PARAMETERS		:
- *		        	: None
- *
- *	RETURNS			:
- *		map     	: Map of interface with hash file for password checking
- */
-func loadhash() map[string]interface{} {
-	//log.Println("loadhash Password hash", Passwordhash)
-	//log.Println("loadhash Cipherkey", Cipherkey)
-	data := map[string]interface{}{
-		"passwordhash": string(Passwordhash),
-	}
-	//log.Println("loadhash data", data)
-	return data
-}
-
-/*
  *	FUNCTION		: myjson
  *	DESCRIPTION		:
  *		This function handles file actions for config.json to load memory
@@ -245,122 +217,115 @@ func loadhash() map[string]interface{} {
 func MyJson(action string) {
 
 	if action == "CREATE" {
-		//log.Println("MyJson Create ", Password)
-		Server = string("None")
-		Caroot = string("None")
-		Queue = string("None")
-		Alias = string("None")
-
-		Queuepassword = string("None")
-		PasswordMinimumSize = string("6")
-		PasswordMustContainNumber = bool(false)
-		PasswordMustContainLetter = bool(false)
-		PasswordMustContainSpecial = bool(false)
-		UseJetstream = bool(true)
-		UseTLS = bool(false)
-		UserID = string("None")
-		UserPassword = string("None")
+		log.Println("MyJson Create ", Password)
+		var c = Confignats{}
+		c.Jserver = string("nats://192.168.0.164:4222")
+		var cert = string("-----BEGIN CERTIFICATE-----\nMIIDKjCCAhKgAwIBAgIUXswOBqsYOrtEKr+5QZZ0/Pwtg/cwDQYJKoZIhvcNAQEL\nBQAwLTEPMA0GA1UEChMGT1JBQ0xFMRowGAYDVQQDExFOZXcgSG9yaXpvbnMgMzAw\nMDAeFw0yMjA4MjUyMTUxMDBaFw0yNzA4MjQyMTUxMDBaMC0xDzANBgNVBAoTBk9S\nQUNMRTEaMBgGA1UEAxMRTmV3IEhvcml6b25zIDMwMDAwggEiMA0GCSqGSIb3DQEB\nAQUAA4IBDwAwggEKAoIBAQC1DYy62ptxKOik3r76SJEgVKDKlVKBL1/RKB3KxiTs\n7ym7Mf73FttmSUtl8lljJVJKaksSk0xxaLwHq5EwZyPqkOcIuqzgrHieL3P17qWE\nqSfOMDVVVEOVXmCOjEqsYDjb2YeV+zvCzq7o9kS97+/muslczWQkT+NldLNXSfqi\njwmd6T2vUVEUtd7kdzr1Z/vFwfGUsTOLnD7chljtvfY1NkQVsxwDKoHaWUWrRUbi\ns2Tzkdi8R2pWhXg5eQHhNe3dRqWYHdoV5Att/IGI6IPsSCjNk78Kj3H40Qkgigdr\n9255hv+kG1ASO2tKxN1Lx+1AGXLNypgtcRb0qOYzRshlAgMBAAGjQjBAMA4GA1Ud\nDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSRqr5ZBI8/t/Dd\nvN9ebSGDCA9+1jANBgkqhkiG9w0BAQsFAAOCAQEAJTNfLISu5JdRvnGqLRiAb9rI\n1ygf+XCDwVNSrZs63ryEcrXNpfNXN8d9Q3qylGlhw+4XYQxjHQhOHO6miMcbGXC+\nCBmxVewquOHbyku6DwAb+v73rEzXyBvyFVnk3QWFDKm4a0smJH+C9Vvx8TCFmkul\nqiV6yMkIpKZ2UbSnGVjkOv3b103VhnD/Jg++jARie8P4vunA7bP+ybN2gEOfudE+\nne+90HcqJCT8EHtPvB/mjtqHEHrWNJSRu/0TgIdMTScFE8Vi18CWWUre3w6wkDrE\nBRsAAouEThO1Jew01rV1CE04s7rp67XUjggejhaTlm3sLmXiajQAj3hZnd2bhw==\n-----END CERTIFICATE-----")
+		cert = strings.ReplaceAll(cert, "\n", "<>")
+		c.Jcaroot = cert
+		c.Jqueue = string("Announcements")
+		c.Jalias = string("Myalias")
+		c.Jqueuepassword = string("123456")
+		c.Jpasswordminimumsize = string("6")
+		c.Jpasswordmustcontainnumber = bool(false)
+		c.Jpasswordmustcontainletter = bool(false)
+		c.Jpasswordmustcontainspecial = bool(false)
+		c.Jusejetstream = bool(true)
+		c.Jusetls = bool(false)
+		c.Juserid = string("None")
+		c.Juserpassword = string("None")
 		EncMessage = FormatMessage("Connected")
 
-		configfile, configfileerr := os.Create("config.json")
-		if configfileerr == nil {
-			enc := json.NewEncoder(configfile)
+		log.Println("MyJson CREATE")
 
-			MyCrypt("ENCRYPT")
-			enc.Encode(loadconfig())
-			MyCrypt("DECRYPT")
+		wrt, errwrite := storage.Writer(DataStore("config.json"))
+		if errwrite != nil {
+			log.Println("SaveConfig Error Writing", DataStore("config.json"))
 		}
-		configfile.Close()
-	}
-	if action == "LOAD" {
+		MyCrypt("ENCRYPT")
 
-		var c map[string]interface{}
+		enc := json.NewEncoder(wrt)
+		err2 := enc.Encode(c)
 
-		jf, errf := os.Open("config.json")
-		if errf != nil {
-			log.Println("LOAD Error file", errf)
-		}
-		jc, je := ioutil.ReadAll(jf)
-
-		if je != nil {
-			log.Println("LOAD Error read all", je)
-		}
-		jf.Close()
-
-		json.Unmarshal([]byte(jc), &c)
-		for k, v := range c {
-			// decrypt all fields ater loading
-			//fmt.Println(k, "=>", v)
-
-			if k == "server" {
-
-				Server = v.(string)
-			}
-			if k == "caroot" {
-				Caroot = v.(string)
-
-			}
-			if k == "alias" {
-				Alias = v.(string)
-			}
-			if k == "nodeuuid" {
-				NodeUUID = v.(string)
-			}
-			if k == "queue" {
-				Queue = v.(string)
-			}
-			if k == "queuepassword" {
-				Queuepassword = v.(string)
-			}
-			if k == "passwordminimumsize" {
-				PasswordMinimumSize = v.(string)
-			}
-			if k == "passwordmustcontainnumber" {
-				PasswordMustContainNumber = v.(bool)
-			}
-			if k == "passwordmustcontainletter" {
-				PasswordMustContainLetter = v.(bool)
-			}
-			if k == "passwordmustcontainspecial" {
-				PasswordMustContainSpecial = v.(bool)
-			}
-			if k == "usejetstream" {
-				UseJetstream = v.(bool)
-			}
-			if k == "passwordmustcontainspecial" {
-				PasswordMustContainSpecial = v.(bool)
-			}
-			if k == "usetls" {
-				UseTLS = v.(bool)
-			}
-			if k == "userid" {
-				UserID = v.(string)
-			}
-			if k == "userpassword" {
-				UserPassword = v.(string)
-			}
+		if err2 != nil {
+			log.Println("SaveConfig Error Saving", DataStore("config.json"))
 		}
 		MyCrypt("DECRYPT")
+		wrt.Close()
+	}
+
+	if action == "LOAD" {
+		log.Println("MyJson LOAD")
+		jsonfile, errf := os.ReadFile(DataStore("config.json").Path())
+		log.Println("MyJson LOAD file", jsonfile)
+		if errf != nil {
+			log.Println("MyJson LOAD Error file", errf)
+		}
+		myc := Confignats{}
+		err := json.Unmarshal([]byte(jsonfile), &myc)
+		if err != nil {
+			log.Println("MyJson LOAD Unmarshall: ", err)
+		}
+		Server = myc.Jserver
+		myc.Jcaroot = strings.ReplaceAll(myc.Jcaroot, "<>", "\n")
+		Caroot = myc.Jcaroot
+		Queue = myc.Jqueue
+		Queuepassword = myc.Jqueuepassword
+		PasswordMinimumSize = myc.Jpasswordminimumsize
+		PasswordMustContainLetter = myc.Jpasswordmustcontainletter
+		PasswordMustContainNumber = myc.Jpasswordmustcontainnumber
+		PasswordMustContainSpecial = myc.Jpasswordmustcontainspecial
+		UseJetstream = myc.Jusejetstream
+		UseTLS = myc.Jusetls
+		UserID = myc.Juserid
+		UserPassword = myc.Juserpassword
+		Alias = myc.Jalias
+		NodeUUID = myc.Jnodeuuid
+
+		MyCrypt("DECRYPT")
+
 		SaveCarootToFS()
 
 	}
 	if action == "SAVE" {
-		e := os.Remove("config.json")
-		if e != nil {
-			log.Fatal(e)
+		log.Println("MyJson SAVE")
+		//dumpglobals("from myjson save ")
+
+		myc := Confignats{}
+
+		myc.Jserver = Server
+		myc.Jcaroot = strings.ReplaceAll(Caroot, "\n", "<>")
+		myc.Jqueue = Queue
+		myc.Jqueuepassword = Queuepassword
+		myc.Jpasswordminimumsize = PasswordMinimumSize
+		myc.Jpasswordmustcontainletter = PasswordMustContainLetter
+		myc.Jpasswordmustcontainnumber = PasswordMustContainNumber
+		myc.Jpasswordmustcontainspecial = PasswordMustContainSpecial
+		myc.Jusejetstream = UseJetstream
+		myc.Jusetls = UseTLS
+		myc.Juserid = UserID
+		myc.Juserpassword = UserPassword
+		myc.Jalias = Alias
+		myc.Jnodeuuid = NodeUUID
+
+		err := storage.Delete(DataStore("config.json"))
+		if err != nil {
+			log.Println("SaveConfig Error Deleting", DataStore("config.json"))
 		}
-		sc, se := os.Create("config.json")
 
-		if se == nil {
-			enc := json.NewEncoder(sc)
-
-			MyCrypt("ENCRYPT")
-			enc.Encode(loadconfig())
-			MyCrypt("DECRYPT")
-
+		wrt, errwrite := storage.Writer(DataStore("config.json"))
+		if errwrite != nil {
+			log.Println("SaveConfig Error Writing", DataStore("config.json"))
 		}
+		MyCrypt("ENCRYPT")
 
-		sc.Close()
+		enc := json.NewEncoder(wrt)
+		err2 := enc.Encode(myc)
+		if err2 != nil {
+			log.Println("SaveConfig Error Saving", DataStore("config.json"))
+		}
+		MyCrypt("DECRYPT")
+
 	}
 }
 
@@ -377,23 +342,17 @@ func MyJson(action string) {
  */
 func SaveCarootToFS() {
 
-	ca, caerr := os.Open("./ca-nats.pem")
-	if caerr == nil {
-		os.Remove("./ca-nats.pem")
-		//log.Println("SaveCarootToFS Deleting")
+	err := storage.Delete(DataStore("ca-nats.pem"))
+	if err != nil {
+		//log.Println("SaveCarootToFS Error Deleting", DataStore("ca-nats.pem"))
 	}
-	ca.Close()
-	cacreate, cacreateerr := os.Open("./ca-nats.pem")
-	if cacreateerr != nil {
-		os.Remove("./ca-nats.pem")
-		//log.Println("SaveCarootToFS caroot " + Caroot)
-		errwrite := os.WriteFile("./ca-nats.pem", []byte(Caroot), 0666)
-		if errwrite != nil {
-			log.Println("SaveCarootToFS Error Writing")
-		}
 
+	//log.Println("SaveCarootToFS caroot " + Caroot)
+	wrt, errwrite := storage.Writer(DataStore("ca-nats.pem"))
+	_, err2 := wrt.Write([]byte(Caroot))
+	if errwrite != nil || err2 != nil {
+		log.Println("SaveCarootToFS Error Writing", DataStore("ca-nats.pem"))
 	}
-	cacreate.Close()
 
 }
 
@@ -463,56 +422,220 @@ func MyCrypt(action string) {
 func MyHash(action string, hash string) {
 
 	if action == "CREATE" {
-		//log.Println("create Hash", hash)
-
-		confighash, confighasherr := os.Create("config.hash")
-		if confighasherr == nil {
-			enc := json.NewEncoder(confighash)
-			//cipherKey := []byte("!99099jjhhnniikjkjilhh7dDDDkillp") //32 bit key for AES-256
-
-			//log.Println("myhash save config", loadhash())
-			enc.Encode(loadhash())
+		log.Println("MyHash  CREATE ", DataStore("config.hash"))
+		err := storage.Delete(DataStore("config.hash"))
+		if err != nil {
+			log.Println("MyHash Error Deleting", DataStore("config.hash"))
 		}
-		confighash.Close()
+		wrt, errwrite := storage.Writer(DataStore("config.hash"))
+		_, err2 := wrt.Write([]byte(Passwordhash))
+		if errwrite != nil || err2 != nil {
+			log.Println("MyHash Error Writing", DataStore("config.hash"))
+		}
+
 	}
 	if action == "LOAD" {
+		log.Println("MyHash  LOAD", DataStore("config.hash"))
+		ph, errf := os.ReadFile(DataStore("config.hash").Path())
+		Passwordhash = string(ph)
 
-		var c map[string]interface{}
-		jf, errf := os.Open("config.hash")
 		if errf != nil {
-			log.Println("LOAD Hash Error file", errf)
-		}
-		jc, je := ioutil.ReadAll(jf)
-
-		if je != nil {
-			log.Println("LOAD Hash Error read all", je)
-		}
-		jf.Close()
-
-		json.Unmarshal([]byte(jc), &c)
-		for k, v := range c {
-			fmt.Println(k, "=>", v)
-			if k == "passwordhash" {
-				Passwordhash = v.(string)
-			}
+			log.Println("MyHash LOAD Hash Error file", errf, " ", Passwordhash)
 		}
 
 	}
 	if action == "SAVE" {
-		e := os.Remove("config.hash")
-		if e != nil {
-			log.Fatal(e)
+		log.Println("MyHash Error save ", DataStore("config.hash"))
+		errf := storage.Delete(DataStore("config.hash"))
+
+		if errf != nil {
+			log.Println("MyHash SAVE Hash Error file", errf)
 		}
-		sc, se := os.Create("config.hash")
-
-		if se == nil {
-			enc := json.NewEncoder(sc)
-			//log.Println("myhash save", loadhash())
-			enc.Encode(loadhash())
-
+		wrt, errwrite := storage.Writer(DataStore("config.hash"))
+		_, err2 := wrt.Write([]byte(Passwordhash))
+		if errwrite != nil || err2 != nil {
+			log.Println("MyHash Error Writing", DataStore("config.hash"))
 		}
 
-		sc.Close()
+	}
+}
+
+/*
+ *	FUNCTION		: NATSConnect
+ *	DESCRIPTION		:
+ *		This function connects to the nats server and populates mm in data using a go thread
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:
+ */
+func NATSConnect() {
+	log.Println("natsconnect ", " js ", UseJetstream)
+	if UseJetstream == false {
+		//nc, err := natsimage.png.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+
+		//if err == nil {
+		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+		//	NatsMessages = ae joippend(NatsMessages, string(msg.Data))
+
+		//})
+
+		//}
+	}
+	if UseJetstream == true {
+
+		NC, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-nats.pem").Path()))
+		if err != nil {
+			log.Println("natsconnect", err, " pv ", PasswordValid)
+		}
+		c, errenc := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
+		if errenc != nil {
+			log.Println("natsconnect enc ", errenc, " pv ", PasswordValid)
+		}
+		// add the consumer
+		//nats consumer next my_stream pull_consumer --count 1000
+		//replay, replayerr := c.Subscribe() {
+
+		//}
+
+		//wg := sync.WaitGroup{}
+		//wg.Add(1)
+		if err == nil {
+			//wg.Add(10)
+			_, errqs := c.QueueSubscribe(Queue, Queue, func(msg MessageStore) {
+				//im = c.
+
+				tonats := msg
+				NatsMessages = append(NatsMessages, tonats)
+
+				//wg.Done()
+			})
+			if errqs != nil {
+				log.Println("natsconnect", errqs, " pv ", PasswordValid)
+			}
+
+			//wg.Wait()
+		}
+
+	}
+}
+
+/*
+ *	FUNCTION		: NATSPublish
+ *	DESCRIPTION		:
+ *		This function publishes to the select queue
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:
+ */
+func NATSPublish(mm MessageStore) {
+	//log.Println("publishing  ")
+	if UseJetstream == false {
+		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+
+		//if err == nil {
+		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+		//	NatsMessages = append(NatsMessages, string(msg.Data))
+
+		//})
+
+		//}
+	}
+	if UseJetstream == true {
+
+		NC, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-nats.pem").Path()))
+		c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
+		if err == nil {
+			//log.Println("publishing  ", mm)
+			c.Publish(Queue, mm)
+		} else {
+			log.Println("publish ", err)
+		}
+
+	}
+}
+
+/*
+ *	FUNCTION		: NATSErase
+ *	DESCRIPTION		:
+ *		This function erases a messages in queue
+ *
+ *	PARAMETERS		:
+ *
+ *	RETURNS		!	:
+ */
+func NATSErase() {
+	log.Println("Erasing  ")
+
+	if UseJetstream == false {
+		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
+
+		//if err == nil {
+		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
+		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
+		//	NatsMessages = append(NatsMessages, string(msg.Data))
+
+		//})
+
+		//}
+	}
+	if UseJetstream == true {
+		log.Println("NatsErase ")
+		NC, se1 := nats.Connect(Server, nats.RootCAs(DataStore("ca-nats.pem").Path()))
+		if se1 != nil {
+			log.Println("NatsErase se1 ", se1.Error())
+		}
+		js, se2 := NC.JetStream()
+		if se2 != nil {
+			log.Println("NatsErase se2 ", se2)
+		}
+
+		// Delete Consumer
+		se3 := js.DeleteConsumer(Queue, "MONITOR")
+		if se3 != nil {
+			log.Println("natsconnect se3 ", se3)
+		}
+		// delete memory store
+		NatsMessages = nil
+		// Delete Stream
+		se4 := js.DeleteStream(Queue)
+		if se4 != nil {
+			log.Println("natsconnect se4 ", se4)
+		}
+		// configure default stream
+		// keep messages 1 week
+		var duration time.Duration = 604800000000
+		cfg := nats.StreamConfig{
+			Name:     Queue,
+			Subjects: []string{Queue},
+			Storage:  nats.FileStorage,
+			MaxAge:   duration,
+		}
+		log.Println("natsconnect se5 ", cfg)
+		// add the stream
+		js, se5 := NC.JetStream()
+		if se5 != nil {
+			log.Println("natsconnect se5 ", se5)
+		}
+
+		//stream, se6 := js.StreamInfo(Queue)
+
+		//if se6 != nil {
+		//	log.Println("natsconnect se6 ", stream)
+		//}
+
+		// Create a Consumer
+		_, se7 := js.AddConsumer(Queue, &nats.ConsumerConfig{
+			Durable:      Queue,
+			ReplayPolicy: nats.ReplayInstantPolicy,
+		})
+		if se7 != nil {
+			log.Println("natsconnect se7 ", se7)
+		}
+
 	}
 }
 
@@ -571,145 +694,6 @@ func FormatMessage(m string) MessageStore {
 	//EncMessage += m
 	return EncMessage
 
-}
-
-/*
- *	FUNCTION		: NATSConnect
- *	DESCRIPTION		:
- *		This function connects to the nats server and populates mm in data using a go thread
- *
- *	PARAMETERS		:
- *e joi
- *	RETURNS		!	:
- */
-func NATSConnect() {
-
-	if UseJetstream == false {
-		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-
-		//if err == nil {
-		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
-		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
-		//	NatsMessages = ae joippend(NatsMessages, string(msg.Data))
-
-		//})
-
-		//}
-	}
-	if UseJetstream == true {
-		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-		c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		if err == nil {
-			//nc.JetStream( "add " + Queue + "--subjects " + Queue + ".** --ack --max-msgs=-1 --max-bytes=-1 --max-age= 1y --storage file --retention limits --max-msg-size=-1 --discard=o")
-			//nc.JetStream( "add" + Queue + " MONITOR --filter '' --ack none --target " + NatsMessages[] + " --deliver last --replay instant")
-
-			//jsc := nc.JetStream( "consumer next myStream pull_consumer --count 1000")
-
-			c.Subscribe(Queue, func(msg MessageStore) {
-				//FormatMessage(msg)
-				//log.Println("natsconnect alias: ", msg.MSalias)
-				//log.Println("natsconnect message: ", msg.MSmessage)
-				//log.Println("natsconnect ipaddrs: ", msg.MSipadrs)
-				//log.Println("natsconnect host: ", msg.MShostname)
-				tonats := msg
-				NatsMessages = append(NatsMessages, tonats)
-
-				//wg.Done()
-			})
-
-			wg.Wait()
-		}
-
-	}
-}
-
-/*
- *	FUNCTION		: NATSPublish
- *	DESCRIPTION		:
- *		This function publishes to the select queue
- *
- *	PARAMETERS		:
- *
- *	RETURNS		!	:
- */
-func NATSPublish(mm MessageStore) {
-	//log.Println("publishing  ")
-	if UseJetstream == false {
-		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-
-		//if err == nil {
-		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
-		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
-		//	NatsMessages = append(NatsMessages, string(msg.Data))
-
-		//})
-
-		//}
-	}
-	if UseJetstream == true {
-		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-		c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
-		if err == nil {
-			//log.Println("publishing  ", mm)
-			c.Publish(Queue, mm)
-		} else {
-			log.Println("publish ", err)
-		}
-
-	}
-}
-
-/*
- *	FUNCTION		: NATSErase
- *	DESCRIPTION		:
- *		This function erases a messages in queue
- *
- *	PARAMETERS		:
- *
- *	RETURNS		!	:
- */
-func NATSErase() {
-	log.Println("Erasing  ")
-	if UseJetstream == false {
-		//nc, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-
-		//if err == nil {
-		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
-		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
-		//	NatsMessages = append(NatsMessages, string(msg.Data))
-
-		//})
-
-		//}
-	}
-	if UseJetstream == true {
-		NC, err := nats.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-		if err != nil {
-
-		}
-		js, _ := NC.JetStream()
-		EncMessage = FormatMessage("SECURITY ERASE")
-		//ERASE MESSAGE
-		log.Println("messagesScreen publish" + "SECURITY ERASE")
-		NATSPublish(EncMessage)
-		// Delete Consumer
-		js.DeleteConsumer(Queue, "MONITOR")
-		// delete memory store
-		NatsMessages = nil
-		// Delete Stream
-		js.DeleteStream(Queue)
-		js.AddStream(&nats.StreamConfig{
-			Name:     Queue,
-			Subjects: []string{Queue + ".*"},
-		})
-		// Create a Consumer
-		js.AddConsumer(Queue, &nats.ConsumerConfig{
-			Durable: "MONITOR",
-		})
-
-	}
 }
 
 /*
