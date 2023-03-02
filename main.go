@@ -13,14 +13,15 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
 	"github.com/nh3000-org/snats/panes"
 )
 
@@ -40,7 +41,7 @@ var TopWindow fyne.Window
  *
  */
 func main() {
-	a := app.NewWithID("io.nh3000.nats")
+	a := app.NewWithID("org.nh3000.snats")
 	a.SetIcon(theme.FyneLogo())
 	makeTray(a)
 	logLifecycle(a)
@@ -50,8 +51,8 @@ func main() {
 	w.SetMaster()
 
 	content := container.NewMax()
-	title := widget.NewLabel("Component name")
-	intro := widget.NewLabel("An introduction would probably go\nhere, as well as a")
+	title := widget.NewLabel("SNATS")
+	intro := widget.NewLabel("Secure Communications using NATS\nVisit nats.io for additional info.")
 	intro.Wrapping = fyne.TextWrapWord
 	setTutorial := func(t panes.MyPane) {
 		if fyne.CurrentDevice().IsMobile() {
@@ -87,7 +88,7 @@ func main() {
 
 /*
  *	FUNCTION		: logLifecycle
- *	DESCRIPTION		:
+ *	DESCRIPTION		:./
  *		Handle remove ca-nats.pem fron file system on exit
  *
  *	PARAMETERS		:
@@ -99,12 +100,12 @@ func main() {
 func logLifecycle(a fyne.App) {
 
 	a.Lifecycle().SetOnStopped(func() {
-		ca, caerr := os.Open("./ca-nats.pem")
+		caerr := storage.Delete(panes.DataStore("ca-nats.pem"))
+
 		if caerr == nil {
-			os.Remove("./ca-nats.pem")
+
 			log.Println("DeleteCarootFS Deleting")
 		}
-		ca.Close()
 
 	})
 
