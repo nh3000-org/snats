@@ -14,15 +14,17 @@ package panes
 
 import (
 	"log"
+	"os/exec"
 
 	"os"
-	"os/exec"
+	//"os/exec"
 
 	"fyne.io/fyne/v2"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -39,12 +41,12 @@ import (
  */
 func logonScreen(_ fyne.Window) fyne.CanvasObject {
 
-	_, configfileerr := os.Stat("config.json")
-	if configfileerr != nil {
+	configbool, _ := storage.Exists(DataStore("config.json"))
+	if configbool == false {
 
 		MyJson("CREATE")
+
 	}
-	MyJson("LOAD")
 
 	password := widget.NewEntry()
 	password.SetPlaceHolder("Enter Password For Encryption")
@@ -73,15 +75,15 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 		pwh, err := bcrypt.GenerateFromPassword([]byte(Password), bcrypt.DefaultCost)
 		Passwordhash = string(pwh)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
-		_, confighasherr := os.Stat("config.hash")
-		if confighasherr != nil {
+		confighasherr, _ := storage.Exists(DataStore("config.hash"))
+		log.Println("hash logon ", confighasherr, " at ", DataStore("config.hash"))
+		if confighasherr == false {
 
 			MyHash("CREATE", Passwordhash)
 		}
-
-		Password = password.Text
+		//Password = password.Text
 		MyHash("LOAD", "NONE")
 		// Comparing the password with the hash
 		if err := bcrypt.CompareHashAndPassword([]byte(Passwordhash), []byte(Password)); err != nil {
@@ -109,46 +111,49 @@ func logonScreen(_ fyne.Window) fyne.CanvasObject {
 	})
 
 	SSbutton := widget.NewButton("Logon", func() {
-		if PasswordValid {
-			var iserrors bool
-			iserrors = false
-			if !iserrors == false {
-				iserrors = editEntry("URL", server.Text)
-			}
-			if !iserrors == false {
-				iserrors = editEntry("CERTIFICATE", caroot.Text)
-			}
-			if !iserrors && PasswordValid {
 
-				uuid, err := exec.Command("uuidgen").Output()
-				if err != nil {
-					log.Fatal(err)
-				}
-				NodeUUID = string(uuid)
-
-				Alias = alias.Text
-				Server = server.Text
-				Caroot = caroot.Text
-				Queue = queue.Text
-				Queuepassword = queuepassword.Text
-				password.Disable()
-				server.Disable()
-				caroot.Disable()
-				alias.Disable()
-				queue.Disable()
-				queuepassword.Disable()
-
-				// dont disable and alLoggedOnlow for multiple queue entries
-				//queue.Disable()
-				//queuepassword.Disable()
-
-				MyJson("SAVE")
-
-				go NATSConnect()
-
-				LoggedOn = true
-			}
+		var iserrors bool
+		iserrors = false
+		if !iserrors == false {
+			iserrors = editEntry("URL", server.Text)
 		}
+		if !iserrors == false {
+			iserrors = editEntry("CERTIFICATE", caroot.Text)
+		}
+		if !iserrors && PasswordValid {
+
+			uuid, err := exec.Command("uuidgen").Output()
+			if err != nil {
+				log.Println("uuidgen ", err)
+			}
+			NodeUUID = string(uuid)
+
+			Alias = alias.Text
+			Server = server.Text
+			Caroot = caroot.Text
+			Queue = queue.Text
+			Queuepassword = queuepassword.Text
+			password.Disable()
+			server.Disable()
+			caroot.Disable()
+			alias.Disable()
+			queue.Disable()
+			queuepassword.Disable()
+
+			// dont disable and alLoggedOnlow for multiple queue entries
+			//queue.Disable()
+			//queuepassword.Disable()
+
+			MyJson("SAVE")
+
+			go NATSConnect()
+
+			LoggedOn = true
+			log.Println("loggedOn ", LoggedOn)
+		} else {
+			log.Println("logon errors ", iserrors, " ", PasswordValid)
+		}
+
 	})
 	// security erase
 	SEbutton := widget.NewButton("Security Erase", func() {
