@@ -461,67 +461,6 @@ func MyHash(action string, hash string) {
 }
 
 /*
- *	FUNCTION		: NATSConnect
- *	DESCRIPTION		:
- *		This function connects to the nats server and populates mm in data using a go thread
- *
- *	PARAMETERS		:
- *
- *	RETURNS		!	:
- */
-func NATSConnect() {
-	log.Println("natsconnect ", " js ", UseJetstream)
-	if UseJetstream == false {
-		//nc, err := natsimage.png.Connect(Server, nats.RootCAs("./ca-nats.pem"))
-
-		//if err == nil {
-		//nc.Publish(Queue+".*", []byte(FormatMessage("Client Connected")))
-		//nc.Subscribe(Queue+".*", func(msg *nats.Msg) {
-		//	NatsMessages = ae joippend(NatsMessages, string(msg.Data))
-
-		//})
-
-		//}
-	}
-	if UseJetstream == true {
-
-		NC, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-nats.pem").Path()))
-		if err != nil {
-			log.Println("natsconnect", err, " pv ", PasswordValid)
-		}
-		c, errenc := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
-		if errenc != nil {
-			log.Println("natsconnect enc ", errenc, " pv ", PasswordValid)
-		}
-		// add the consumer
-		//nats consumer next my_stream pull_consumer --count 1000
-		//replay, replayerr := c.Subscribe() {
-
-		//}
-
-		//wg := sync.WaitGroup{}
-		//wg.Add(1)
-		if err == nil {
-			//wg.Add(10)
-			_, errqs := c.QueueSubscribe(Queue, Queue, func(msg MessageStore) {
-				//im = c.
-
-				tonats := msg
-				NatsMessages = append(NatsMessages, tonats)
-
-				//wg.Done()
-			})
-			if errqs != nil {
-				log.Println("natsconnect", errqs, " pv ", PasswordValid)
-			}
-
-			//wg.Wait()
-		}
-
-	}
-}
-
-/*
  *	FUNCTION		: NATSPublish
  *	DESCRIPTION		:
  *		This function publishes to the select queue
