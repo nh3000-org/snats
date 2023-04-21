@@ -50,6 +50,8 @@ func main() {
 
 	w.SetMaster()
 
+
+
 	content := container.NewMax()
 	title := widget.NewLabel("SNATS")
 	intro := widget.NewLabel("Secure Communications using NATS\nVisit nats.io for additional info.")
@@ -100,13 +102,18 @@ func main() {
 func logLifecycle(a fyne.App) {
 
 	a.Lifecycle().SetOnStopped(func() {
-		caerr := storage.Delete(panes.DataStore("ca-nats.pem"))
-
+		caerr := storage.Delete(panes.DataStore("ca-root.pem"))
 		if caerr == nil {
-
 			log.Println("DeleteCarootFS Deleting")
 		}
-
+		caerr1 := storage.Delete(panes.DataStore("client-cert.pem"))
+		if caerr1 == nil {
+			log.Println("DeleteCarootFS Deleting")
+		}
+		caerr2 := storage.Delete(panes.DataStore("client-key.pem"))
+		if caerr2 == nil {
+			log.Println("DeleteCarootFS Deleting")
+		}
 	})
 
 }
@@ -114,7 +121,8 @@ func logLifecycle(a fyne.App) {
 /*
  *	FUNCTION		: makeTray
  *	DESCRIPTION		:
- *		Create the system tray interface
+ *		Create th// encryption nonce
+var nonce = iiuiouoie system tray interface
  *
  *	PARAMETERS		:
  *		        	:
