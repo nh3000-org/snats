@@ -12,10 +12,13 @@
 package panes
 
 import (
+	//"encoding/json"
+	"fmt"
 	"log"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"github.com/goccy/go-json"
 	"github.com/nats-io/nats.go"
 
 	//	"fyne.io/fyne/v2/dialog"
@@ -56,10 +59,10 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		func(id widget.ListItemID, item fyne.CanvasObject) {
 			var prefix = ""
 			if !NodeIsValid(NatsMessages[id].MSnodeuuid) {
-				prefix = "[Unknown]"
+				prefix = "-"
 			}
 
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(prefix + NatsMessages[id].MSalias)
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(prefix + NatsMessages[id].MSalias + " - " + NatsMessages[id].MShostname)
 
 		},
 	)
@@ -75,75 +78,132 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 	List.Resize(fyne.NewSize(500, 5000))
 	List.Refresh()
-	if UseJetstream == true {
-
-		NC, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-nats.pem").Path()))
+	if PasswordValid == true {
+		//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
+		nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 		if err != nil {
 			log.Println("natsconnect", err, " pv ", PasswordValid)
 		}
-		c, errenc := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
-		if errenc != nil {
-			log.Println("natsconnect enc ", errenc)
-		}
-		_, errqs := c.QueueSubscribe(Queue, Queue, func(msg MessageStore) {
 
-			HandleMessage(msg)
-
-			List.Refresh()
+		js, _ := nc.JetStream()
+		js.AddStream(&nats.StreamConfig{
+			Name:     Queue,
+			Subjects: []string{Queue},
 		})
-		if errqs != nil {
-			log.Println("natsconnect", errqs)
+		// Create a Consumer
+		ac, se7 := js.AddConsumer(Queue, &nats.ConsumerConfig{
+			Durable:       Queue,
+			AckPolicy:     nats.AckExplicitPolicy,
+			DeliverPolicy: nats.DeliverAllPolicy,
+			//		ReplayPolicy: nats.ReplayInstantPolicy,
+		})
+		if se7 != nil {
+			log.Println("natsconnect se7 ", se7, ac)
 		}
-		if err == nil && errenc == nil {
-			//wg.Add(10)
+		log.Println("natsconnect se8 ")
+		sub, errsub := js.PullSubscribe(Queue, Queue, nats.BindStream(Queue))
+		if errsub != nil {
+			log.Println("pullsubscribe sub ", errsub)
+		}
+		msgs, errfetch := sub.Fetch(100)
+		if errfetch != nil {
+			log.Println("pullsubscribe fetch ", errfetch)
+		}
+		fmt.Printf("got %d messages\n", len(msgs))
+		if len(msgs) > 0 {
 
-			//qcnt, qerr := q.Fetch(100)
-			//log.Println("queue fetch count ", qcnt)
-
-			if errqs != nil {
-				//log.Println("queue fetch ", qerr)
+			for i := 0; i < len(msgs); i++ {
+				msgs[i].Nak()
+				HandleMessage(msgs[i])
+				fmt.Printf("fetch message %d  ", msgs[i].Data)
 			}
 
 		}
+		//sub1, errsub := js.Subscribe(Queue, func (msg nats.Msg) {
 
-	}
-	// try the password
-	smbutton := widget.NewButton("Send Message", func() {
+		//		})
+		//		nc.Close()
+		//ephemeralName := <-js.ConsumerNames(Queue)
+		//fmt.Printf("ephemeral name is %q\n", ephemeralName)
 
-		EncMessage = FormatMessage(mymessage.Text)
-		//AddMessage()
-		//log.Println("messagesScreen publish" + mymessage.Text)
-		NATSPublish(EncMessage)
+		smbutton := widget.NewButton("Send Message", func() {
 
-	})
+			var formatMessage = FormatMessage(mymessage.Text)
 
-	topbox := container.NewBorder(
+			js.Publish(Queue, []byte(formatMessage))
 
-		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		smbutton,
-		nil,
-		nil,
-		mymessage,
-	)
-	// save the server
-	recbutton := widget.NewButton("Recieve Messages", func() {
+		})
 
-		//NATSErase()
-		//go NATSConnect()
+		topbox := container.NewBorder(
 
-	})
+			widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			smbutton,
+			nil,
+			nil,
+			mymessage,
+		)
+		// recieve messages
+		recbutton := widget.NewButton("Recieve Messages", func() {
+			//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
+			nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
+			if err != nil {
+				log.Println("Recieve Messages ", err, " pv ", PasswordValid)
+			}
 
-	if !LoggedOn {
-		mymessage.Disable()
-		smbutton.Disable()
-		recbutton.Disable()
-		ErrorMessage = "Please Logon"
-		//ErrorScreen(TopWindow)
+			js, _ := nc.JetStream()
+			js.AddStream(&nats.StreamConfig{
+				Name:     Queue,
+				Subjects: []string{Queue},
+			})
+			// Create a Consumer
+			ac, se7 := js.AddConsumer(Queue, &nats.ConsumerConfig{
+				Durable:       Queue,
+				AckPolicy:     nats.AckExplicitPolicy,
+				DeliverPolicy: nats.DeliverAllPolicy,
+				//		ReplayPolicy: nats.ReplayInstantPolicy,
+			})
+			if se7 != nil {
+				log.Println("Recieve Messages AddConsumer ", se7, ac)
+			}
+
+			_, errsub := js.QueueSubscribe(Queue, Alias, func(msg *nats.Msg) {
+				log.Println("Recieve Messages Receive ", msg.Data)
+				HandleMessage(msg)
+				msg.Ack()
+
+			})
+			if errsub != nil {
+				log.Println("Recieve Messages Subscribe ", errsub)
+			}
+
+		})
+
+		if !LoggedOn {
+			mymessage.Disable()
+			smbutton.Disable()
+			recbutton.Disable()
+			ErrorMessage = "Please Logon"
+			//ErrorScreen(TopWindow)
+		}
+
+		return container.NewBorder(
+
+			topbox,
+			recbutton,
+			nil,
+			nil,
+
+			//widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
+			// natsmessages is message q
+			//		container.NewVScroll(
+			container.NewHSplit(List, container.NewCenter(hbox)),
+		)
+		//)
 	}
 	return container.NewBorder(
 
-		topbox,
-		recbutton,
+		widget.NewLabelWithStyle("Logon First", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		nil,
 		nil,
 		nil,
 
@@ -152,14 +212,20 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		//		container.NewVScroll(
 		container.NewHSplit(List, container.NewCenter(hbox)),
 	)
-	//)
-
 }
-func HandleMessage(m MessageStore) {
-
-	NatsMessages = append(NatsMessages, m)
+func HandleMessage(m *nats.Msg) {
+	mm := MessageStore{}
+	err := json.Unmarshal([]byte(m.Data), &mm)
+	if err != nil {
+		log.Println("HandleMessage Unmarshall: ", err)
+	}
+	NatsMessages = append(NatsMessages, mm)
 }
 func NodeIsValid(node string) bool {
+	if node == NodeUUID {
+		return true
+	}
+
 	return false
 
 }
