@@ -14,13 +14,18 @@ package panes
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+
+	//"encoding/base64"
 	"encoding/base64"
+	//"encoding/hex"
+
+	//"encoding/hex"
+
+	"github.com/google/uuid"
 
 	//"encoding/json"
-	"errors"
+	//"errors"
 	"fmt"
-	"io"
 
 	"github.com/goccy/go-json"
 
@@ -42,6 +47,11 @@ import (
 	//"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var MyBytes = []byte{35, 46, 57, 24, 85, 35, 24, 74, 87, 35, 88, 98, 66, 32, 14, 05}
+
+// This should be in an env file in production
+const MySecret string = "abd&1*~#^2^#s0^=)^^7%c34"
 
 // version
 const Version = "snats-beta"
@@ -78,8 +88,7 @@ var PasswordMustContainSpecial bool // password must contain special character
 // Server tab
 var Server string // server url
 
-//var UseJetstream bool // if set to true uses jetstream protocol otherwise regular pub/sub
-// var UseTLS bool         // use TLS to Authenticate  else use userid /password
+var IdUUID string       // unique message id
 var Caroot string       // CAROOT certificate for server authentication
 var Clientcert string   // Client cert signed by caroot
 var Clientkey string    // Client key signed by carooit
@@ -87,14 +96,14 @@ var UserID string       // NATS user id
 var UserPassword string // NATS password for crypto operations
 var Alias string        // name the queue user
 var NodeUUID string     // nodeuuid created on logon
-var Nonce string        // nonce for encrypt/decrypt
-var Noncesize int       // nonce for encrypt/decrypt
+//var Nonce string        // nonce for encrypt/decrypt
+//var Noncesize int       // nonce for encrypt/decrypt
 /*
  *	  These constants are set to establish a password schema for Local File Encryption and Queue password
  */
 
-const Cipherkey = "asuperstrong32bitpasswordgohere!" // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
-const PasswordDefault = "123456"                     // default password shipped with app
+//const Cipherkey = "6469616e676520746869732070617373776f726420746f20612073656372657455hhrrddewwss" // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
+const PasswordDefault = "123456" // default password shipped with app
 //const MessageFormat = "HostName: = #HOSTNAME IPs : #IPS\n Message: #MESSAGE\n Date/Time #DATETIME\n" // default message for posting
 /*
  *	  Confignats is used to hold config.json fields
@@ -116,8 +125,7 @@ type Confignats struct {
 	Juserpassword string `json:"userpassword"` // user password
 	Jalias        string `json:"alias"`        // user alias
 	Jnodeuuid     string `json:"nodeuuid"`     // node id created on logon
-	Jnonce        string `json:"nonce"`        // nonce for encrypt/decrypt
-	Jnoncesize    int    `json:"noncesize"`    // noncesize for encrypt/decrypt
+
 }
 
 // Pane defines the data structure
@@ -128,6 +136,7 @@ type MyPane struct {
 }
 
 type MessageStore struct {
+	MSiduuid   string
 	MSalias    string
 	MShostname string
 	MSipadrs   string
@@ -258,25 +267,6 @@ func MyJson(action string) {
 		UserID = string("None")
 
 		UserPassword = string("None")
-		aesBlock, err := aes.NewCipher([]byte(Cipherkey))
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		gcmInstance, err := cipher.NewGCM(aesBlock)
-		if err != nil {
-			fmt.Println(err)
-		}
-		nonce := make([]byte, gcmInstance.NonceSize())
-		_, _ = io.ReadFull(rand.Reader, nonce)
-		nonceSize := gcmInstance.NonceSize()
-		Nonce = string(nonce)
-		Noncesize = nonceSize
-		log.Println("MyJson CREATE ", "nonce:", nonce, ":", nonceSize)
-		// nonce
-		// create
-		//save to fs
-		// load to memory and use
 
 		MyCrypt("ENCRYPT")
 		c.Jserver = Server
@@ -292,8 +282,6 @@ func MyJson(action string) {
 		c.Jpasswordmustcontainspecial = PasswordMustContainSpecial
 		c.Juserid = UserID
 		c.Juserpassword = UserPassword
-		c.Jnonce = Nonce
-		c.Jnoncesize = Noncesize
 
 		wrt, errwrite := storage.Writer(DataStore("config.json"))
 		if errwrite != nil {
@@ -346,6 +334,7 @@ func MyJson(action string) {
 		UserPassword = myc.Juserpassword
 		Alias = myc.Jalias
 		NodeUUID = myc.Jnodeuuid
+
 		MyCrypt("DECRYPT")
 		//SaveCarootToFS()
 
@@ -395,191 +384,152 @@ func MyJson(action string) {
 }
 
 /*
- *	FUNCTION		: SaveCarootToFS Public function thats save Caroot certificate to fs
+ *	FUNCTION		: Encode bytes to base64 encoding
  *	DESCRIPTION		:
- *		This function handles caroot certificate usage
+ *		This function encodes a string
  *
- *	PARAMETERS		        :
+ *	PARAMETERS		:  bytes to encode
 
  *
- *	RETURNS			:
+ *	RETURNS			: bytes as encoded string
  *		         	: None
  */
-func SaveCarootToFSDEPRECATED() {
-	log.Println("SaveCarootToFS ")
-	// ca-root.pem
+func Encode(b []byte) string {
+	log.Println("Encode")
 
-	errroot := storage.Delete(DataStore("ca-root.pem"))
-	if errroot != nil {
-		//log.Println("SaveCarootToFS Error Deleting", DataStore("ca-root.pem"))
-	}
-	wrtroot, errwrite := storage.Writer(DataStore("ca-root.pem"))
-	_, errwrite2 := wrtroot.Write([]byte(Caroot))
-	if errwrite != nil || errwrite2 != nil {
-		log.Println("SaveCarootToFS Error Writing", DataStore("ca-root.pem"))
-	}
-	wrtroot.Close()
-
-	// client-cert.pem
-	errcert := storage.Delete(DataStore("client-cert.pem"))
-	if errcert != nil {
-		//log.Println("SaveCarootToFS Error Deleting", DataStore("client-cert.pem"))
-	}
-	wrtcert, errcertwrite := storage.Writer(DataStore("client-cert.pem"))
-	if errcertwrite != nil {
-		log.Println("SaveCarootToFS Error Writing", DataStore("client-cert.pem"))
-	}
-	_, errcertwrite2 := wrtcert.Write([]byte(Clientcert))
-	if errcertwrite2 != nil {
-		log.Println("SaveCarootToFS Error Writing", DataStore("client-cert.pem"))
-	}
-	wrtcert.Close()
-
-	// client-key.pem
-	errkey := storage.Delete(DataStore("client-key.pem"))
-	if errkey != nil {
-		//log.Println("SaveCarootToFS Error Deleting", DataStore("client-key.pem"))
-	}
-	wrtkey, errkeywrite := storage.Writer(DataStore("client-key.pem"))
-	if errkeywrite != nil {
-		log.Println("SaveCarootToFS Error Writing", DataStore("client-key.pem"))
-	}
-	_, errkeywrite2 := wrtkey.Write([]byte(Clientkey))
-	if errkeywrite2 != nil {
-		log.Println("SaveCarootToFS Error Writing", DataStore("client-key.pem"))
-	}
-	wrtkey.Close()
+	return base64.StdEncoding.EncodeToString(b)
 
 }
 
 /*
- *	FUNCTION		: MyCrypt Public function to be used by message encryption/decryption
+ *	FUNCTION		: Decode string into bytes
+ *	DESCRIPTION		:
+ *		This function decodes a string
+ *
+ *	PARAMETERS		:  string to encode
+
+ *
+ *	RETURNS			: string as bytes
+ *		         	: None
+ */
+func Decode(s string) []byte {
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+/*
+ *	FUNCTION		: MyCrypt "6469616e676520746869732070617373776f726420746f206120736563726574"Public function to be used by message encryption/decryption
  *	DESCRIPTION		:
  *		This function handles fiedd encryption/decryption of memory
- *
+ *	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
+	nonce := make([]byte, 12)
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		panic(err.Error())
+	}
  *	PARAMETERS		        :
  *		action string   	: ENCRYPT or DECRYPT
  *
  *	RETURNS			:
  *		         	: None
- */
+*/
 func MyCrypt(action string) {
 
-	if action == "ENCRYPTnow" {
-		aesBlock, err := aes.NewCipher([]byte(Cipherkey))
-		if err != nil {
-			fmt.Println(err)
-		}
-		gcmInstance, err := cipher.NewGCM(aesBlock)
-		if err != nil {
-			fmt.Println(err)
-		}
-		log.Println("MyCrypt ", "ENcrypt Server before", Server)
-		e1 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Server), nil)
-		//var newvalue, err = encrypt([]byte(Cipherkey), Server)
-		Server = string(e1)
+	//var keyStr = string(MyNonce())
+	//keycvt, errs := hex.DecodeString(string(keyin))
+	//if errs != nil {
+	//	log.Println("MyCrypt keyin", errs)
+	//}
+	//var keyStr = string(keycvt)
 
-		log.Println("MyCrypt ", "ENcrypt Server after ", Server)
-		e2 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Caroot), nil)
-		Caroot = string(e2)
-		e3 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Clientcert), nil)
-		Clientcert = string(e3)
-		e4 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Clientkey), nil)
-		Clientkey = string(e4)
-		e5 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Queue), nil)
-		Queue = string(e5)
-		e6 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Queuepassword), nil)
-		Queuepassword = string(e6)
-		e7 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(UserID), nil)
-		UserID = string(e7)
-		e8 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(UserPassword), nil)
-		UserPassword = string(e8)
-		e9 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(Alias), nil)
-		Alias = string(e9)
-		e10 := gcmInstance.Seal([]byte(Nonce), []byte(Nonce), []byte(NodeUUID), nil)
-		NodeUUID = string(e10)
+	if action == "ENCRYPT" {
 
-	}
-	if action == "DECRYPTnow" {
-		aesBlock, err := aes.NewCipher([]byte(Cipherkey))
-		if err != nil {
-			fmt.Println(err)
-		}
-		gcmInstance, err := cipher.NewGCM(aesBlock)
-		if err != nil {
-			fmt.Println(err)
-		}
-		//nonce, cipheredText := []byte(Server[:Noncesize]), []byte(Server)[nonceSize:]
-		originalText, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Server), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Server = string(originalText)
+		log.Println("MyCrypt encrypt ", "ENcrypt Server before", Server)
 
-		//nonce1, cipheredText1 := []byte(Caroot[:nonceSize]), []byte(Caroot)[nonceSize:]
-		originalText1, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Caroot), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Caroot = string(originalText1)
+		cryptoText, _ := encrypt(Server, MySecret)
 
-		//nonce2, cipheredText2 := []byte(Clientcert[:nonceSize]), []byte(Clientcert)[nonceSize:]
-		originalText2, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Clientcert), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Clientcert = string(originalText2)
+		Server = cryptoText
 
-		//nonce3, cipheredText3 := []byte(Clientkey[:nonceSize]), []byte(Clientkey)[nonceSize:]
-		originalText3, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Clientkey), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Clientkey = string(originalText3)
+		log.Println("MyCrypt encrypt ", "ENcrypt Server after ", Server)
 
-		//nonce4, cipheredText4 := []byte(Queue[:nonceSize]), []byte(Queue)[nonceSize:]
-		originalText4, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Clientkey), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Clientkey = string(originalText4)
+		cryptoText1, _ := encrypt(Caroot, MySecret)
+		Caroot = cryptoText1
 
-		//nonce5, cipheredText5 := []byte(Queuepassword[:nonceSize]), []byte(Queuepassword)[nonceSize:]
-		originalText5, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Queuepassword), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Queuepassword = string(originalText5)
+		cryptoText2, _ := encrypt(Clientcert, MySecret)
+		Clientcert = cryptoText2
+		cryptoText3, _ := encrypt(Clientkey, MySecret)
+		Clientkey = cryptoText3
 
-		//nonce6, cipheredText6 := []byte(UserID[:nonceSize]), []byte(UserID)[nonceSize:]
-		originalText6, err := gcmInstance.Open(nil, []byte(Nonce), []byte(UserID), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		UserID = string(originalText6)
+		cryptoText4, _ := encrypt(Queue, MySecret)
+		Queue = cryptoText4
 
-		//nonce7, cipheredText7 := []byte(UserPassword[:nonceSize]), []byte(UserPassword)[nonceSize:]
-		originalText7, err := gcmInstance.Open(nil, []byte(Nonce), []byte(UserPassword), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		UserPassword = string(originalText7)
+		cryptoText5, _ := encrypt(Queuepassword, MySecret)
+		Queuepassword = cryptoText5
 
-		//nonce8, cipheredText8 := []byte(Alias[:nonceSize]), []byte(Alias)[nonceSize:]
-		originalText8, err := gcmInstance.Open(nil, []byte(Nonce), []byte(Alias), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		Alias = string(originalText8)
+		cryptoText6, _ := encrypt(UserID, MySecret)
+		UserID = cryptoText6
 
-		//nonce9, cipheredText9 := []byte(NodeUUID[:nonceSize]), []byte(NodeUUID)[nonceSize:]
-		originalText9, err := gcmInstance.Open(nil, []byte(Nonce), []byte(NodeUUID), nil)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		NodeUUID = string(originalText9)
+		cryptoText7, _ := encrypt(UserPassword, MySecret)
+		UserPassword = cryptoText7
+
+		cryptoText8, _ := encrypt(Alias, MySecret)
+		Alias = cryptoText8
+
+		cryptoText9, _ := encrypt(NodeUUID, MySecret)
+		NodeUUID = cryptoText9
 
 	}
+	if action == "DECRYPT" {
+		log.Println("MyCrypt decrypt ", "decrypt Server before", Server)
+		text, _ := decrypt(Server, MySecret)
+		Server = text
+		log.Println("MyCrypt decrypt ", "decrypt Server after", Server)
+		text1, _ := decrypt(Caroot, MySecret)
+		Caroot = text1
+		text2, _ := decrypt(Clientcert, MySecret)
+		Clientcert = text2
+		text3, _ := decrypt(Clientkey, MySecret)
+		Clientkey = text3
+		text4, _ := decrypt(Queue, MySecret)
+		Queue = text4
+		text5, _ := decrypt(Queuepassword, MySecret)
+		Queuepassword = text5
+		text6, _ := decrypt(UserID, MySecret)
+		UserID = text6
+		text7, _ := decrypt(UserPassword, MySecret)
+		UserPassword = text7
+		text8, _ := decrypt(Alias, MySecret)
+		Alias = text8
+		text9, _ := decrypt(NodeUUID, MySecret)
+		NodeUUID = text9
+
+	}
+}
+func encrypt(text string, MySecret string) (string, error) {
+	block, err := aes.NewCipher([]byte(MySecret))
+	if err != nil {
+		return "", err
+	}
+	plainText := []byte(text)
+	cfb := cipher.NewCFBEncrypter(block, MyBytes)
+	cipherText := make([]byte, len(plainText))
+	cfb.XORKeyStream(cipherText, plainText)
+	return Encode(cipherText), nil
+}
+
+// decrypt from base64 to decrypted string
+func decrypt(text string, MySecret string) (string, error) {
+	block, err := aes.NewCipher([]byte(MySecret))
+	if err != nil {
+		return "", err
+	}
+	cipherText := Decode(text)
+	cfb := cipher.NewCFBDecrypter(block, MyBytes)
+	plainText := make([]byte, len(cipherText))
+	cfb.XORKeyStream(plainText, cipherText)
+	return string(plainText), nil
 }
 
 /*
@@ -639,7 +589,7 @@ func MyHash(action string, hash string) {
  *	FUNCTION		: NATSPublish
  *	DESCRIPTION		:
  *		This function publishes to the select queue
- *
+ *MyJson LOAD
  *	PARAMETERS		:
  *
  *	RETURNS		!	:
@@ -665,18 +615,6 @@ func NATSPublishDEPRECATED(mm MessageStore) {
 		log.Println("publish ", err)
 	}
 
-}
-
-/*
- *	FUNCTION		: NATSConnect
- *	DESCRIPTION		:
- *		This function connectes to a nats server
- *
- *	PARAMETERS		:
- *
- *	RETURNS		!	:
- */
-func NATSConnect() {
 }
 
 /*
@@ -721,7 +659,17 @@ func NATSErase() {
 		log.Println("NatsErase AddStream ", err1)
 	}
 	fmt.Printf("js1: %v\n", js1)
+	ac, err1 := js.AddConsumer(Queue, &nats.ConsumerConfig{
+		//Durable:   Alias,
+		Durable:   NodeUUID,
+		AckPolicy: nats.AckExplicitPolicy,
 
+		DeliverPolicy: nats.DeliverAllPolicy,
+		//		ReplayPolicy: nats.ReplayInstantPolicy,
+	})
+	if err1 != nil {
+		log.Println("NatsErase AddConsumer ", err1, " ", ac)
+	}
 	//ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	//defer cancel()
 	//for info := range js.StreamsInfo(nats.Context(ctx)) {
@@ -748,6 +696,9 @@ func NATSErase() {
  */
 func FormatMessage(m string) string {
 	EncMessage := MessageStore{}
+
+	//ID , err := exec.Command("uuidgen").Output()
+
 	name, err := os.Hostname()
 	if err != nil {
 		EncMessage.MShostname = "No Host Name"
@@ -787,6 +738,9 @@ func FormatMessage(m string) string {
 		EncMessage.MSipadrs = "No IP"
 	}
 	EncMessage.MSalias = Alias
+
+	EncMessage.MSiduuid = uuid.New().String()
+
 	EncMessage.MSmessage = m
 	//EncMessage += m
 	jsonmsg, jsonerr := json.Marshal(EncMessage)
@@ -795,94 +749,6 @@ func FormatMessage(m string) string {
 	}
 	return string(jsonmsg)
 
-}
-
-/*
- *	FUNCTION		: encrypt
- *	DESCRIPTION		:
- *		This function takes a string and a cipher key and uses AES to encrypt the message
- *
- *	PARAMETERS		:
- *		byte[] key	: Byte array containing the cipher key
- *		string message	: String containing the message to encrypt
- *
- *	RETURNS		New Horizons 3000 Secure Communications	:
- *		string encoded	: String containing the encoded user input
- *		error err	: Error message
- */
-func encrypt(key []byte, message string) (encoded string, err error) {
-	//Create byte array from the input string
-	plainText := []byte(message)
-
-	//Create a new AES cipher using the key
-	block, err := aes.NewCipher(key)
-
-	//IF NewCipher failed, exit:
-	if err != nil {
-		return
-	}
-
-	//Make the cipher text a byte array of size BlockSize + the length of the message
-	cipherText := make([]byte, aes.BlockSize+len(plainText))
-
-	//iv is the ciphertext up to the blocksize (16)
-	iv := cipherText[:aes.BlockSize]
-	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
-		return
-	}
-
-	//Encrypt the data:
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(cipherText[aes.BlockSize:], plainText)
-
-	//Return string encoded in base64
-	return base64.RawStdEncoding.EncodeToString(cipherText), err
-}
-
-/*
- *	FUNCTION		: decrypt
- *	DESCRIPTION		:
- *		This function takes a string and a key and uses AES to decrypt the string into plain text
- *
- *	PARAMETERS		:
- *		byte[] key	: Byte array containing the cipher key
- *		string secure	: String containing an encrypted message
- *
- *	RETURNS			:
- *		string decoded	: String containing the decrypted equivalent of secure
- *		error err	: Error message
- */
-func decrypt(key []byte, secure string) (decoded string, err error) {
-	//Remove base64 encoding:
-	cipherText, err := base64.RawStdEncoding.DecodeString(secure)
-
-	//IF DecodeString failed, exit:
-	if err != nil {
-		return
-	}
-
-	//Create a new AES cipher with the key and encrypted message
-	block, err := aes.NewCipher(key)
-
-	//IF NewCipher failed, exit:
-	if err != nil {
-		return
-	}
-
-	//IF the length of the cipherText is less than 16 Bytes:
-	if len(cipherText) < aes.BlockSize {
-		err = errors.New("Ciphertext block size is too short!")
-		return
-	}
-
-	iv := cipherText[:aes.BlockSize]
-	cipherText = cipherText[aes.BlockSize:]
-
-	//Decrypt the message
-	stream := cipher.NewCFBDecrypter(block, iv)
-	stream.XORKeyStream(cipherText, cipherText)
-
-	return string(cipherText), err
 }
 
 /*
