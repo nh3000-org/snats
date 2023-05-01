@@ -242,6 +242,7 @@ func MyJson(action string) {
 		Server = string("nats://192.168.0.103:4222")
 
 		var xCaroot = string("-----BEGIN CERTIFICATE-----\nMIICFDCCAbugAwIBAgIUDkHxHO1DwrlkTzUimG5PoiswB6swCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAgFw0yMzAzMzExNzI5MDBaGA8yMDUzMDMyMzE3MjkwMFowZjELMAkG\nA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UEChMDU0VD\nMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9y\nZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABHXwMUfMXiJix3tuzFymcA+3RkeY\nZE7urUzVgaqkv/Oef3jhqhtf1XzK/qVYGxWWmpvADGB252PG1Mp7Z5wmzqyjRTBD\nMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQm\nFA5caanuqxGFOf9DtZkVYv5dCzAKBggqhkjOPQQDAgNHADBEAiB3BheNP4XdBZ27\nxVBQ7ztMJqK7wDi1V3LuMy5jmXr7rQIgHCse0oaiAwcl4VwF00aSshlV+T/da0Tx\n1ANkaM+rie4=\n-----END CERTIFICATE-----\n")
+
 		Caroot = strings.ReplaceAll(xCaroot, "\n", "<>")
 
 		var xClientcert = string("-----BEGIN CERTIFICATE-----\nMIIDUzCCAvigAwIBAgIUUyhlJt8mp1XApRbSkdrUS55LGV8wCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAeFw0yMzAzMzExNzI5MDBaFw0yODAzMjkxNzI5MDBaMHIxCzAJBgNV\nBAYTAlVTMRAwDgYDVQQIEwdGbG9yaWRhMRIwEAYDVQQHEwlDcmVzdHZpZXcxGjAY\nBgNVBAoTEU5ldyBIb3Jpem9ucyAzMDAwMSEwHwYDVQQLExhuYXRzLm5ld2hvcml6\nb25zMzAwMC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDFttVH\nQ131JYwazAQMm0XAQvRvTjTjOY3aei1++mmQ+NQ9mrOFk6HlZFoKqsy6+HPXsB9x\nQbWlYvUOuqBgb9xFQZoL8jiKskLLrXoIxUAlIBTlyf76r4SV+ZpxJYoGzXNTedaU\n0EMTyAiUQ6nBbFMXiehN5q8VzxtTESk7QguGdAUYXYsCmYBvQtBXoFYO5CHyhPqu\nOZh7PxRAruYypEWVFBA+29+pwVeaRHzpfd/gKLY4j2paInFn7RidYUTqRH97BjdR\nSZpOJH6fD7bI4L09pnFtII5pAARSX1DntS0nWIWhYYI9use9Hi/B2DRQLcDSy1G4\n0t1z4cdyjXxbFENTAgMBAAGjgawwgakwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQM\nMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFAzgPVB2/sfT7R0U\ne3iXRSvUkfoQMB8GA1UdIwQYMBaAFCYUDlxpqe6rEYU5/0O1mRVi/l0LMDQGA1Ud\nEQQtMCuCGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9yZ4IJMTI3LDAsMCwxhwTAqABn\nMAoGCCqGSM49BAMCA0kAMEYCIQCDlUH2j69mJ4MeKvI8noOmvLHfvP4qMy5nFW2F\nPT5UxgIhAL6pHFyEbANtSkcVJqxTyKE4GTXcHc4DB43Z1F7VxSJj\n-----END CERTIFICATE-----\n")
@@ -314,14 +315,9 @@ func MyJson(action string) {
 		}
 
 		Server = myc.Jserver
-
-		Caroot = strings.ReplaceAll(myc.Jcaroot, "<>", "\n")
-
-		Clientcert = strings.ReplaceAll(myc.Jclientcert, "<>", "\n")
-		//log.Println("MyJson LOAD myc.Jclientcert: ", myc.Jclientcert)
-
-		Clientkey = strings.ReplaceAll(myc.Jclientkey, "<>", "\n")
-		//Clientkey = myc.Jclientkey
+		Caroot = myc.Jcaroot
+		Clientkey = myc.Jclientkey
+		Clientcert = myc.Jclientcert
 		Queue = myc.Jqueue
 		Queuepassword = myc.Jqueuepassword
 		PasswordMinimumSize = myc.Jpasswordminimumsize
@@ -336,7 +332,12 @@ func MyJson(action string) {
 		NodeUUID = myc.Jnodeuuid
 
 		MyCrypt("DECRYPT")
-		//SaveCarootToFS()
+		var xCaroot = strings.ReplaceAll(Caroot, "<>", "\n")
+		Caroot = xCaroot
+		var xClientcert = strings.ReplaceAll(Clientcert, "<>", "\n")
+		Clientcert = xClientcert
+		var xClientkey = strings.ReplaceAll(Clientkey, "<>", "\n")
+		Clientkey = xClientkey
 
 	}
 	if action == "SAVE" {
@@ -395,10 +396,7 @@ func MyJson(action string) {
  *		         	: None
  */
 func Encode(b []byte) string {
-	log.Println("Encode")
-
 	return base64.StdEncoding.EncodeToString(b)
-
 }
 
 /*
@@ -421,93 +419,91 @@ func Decode(s string) []byte {
 }
 
 /*
- *	FUNCTION		: MyCrypt "6469616e676520746869732070617373776f726420746f206120736563726574"Public function to be used by message encryption/decryption
+ *	FUNCTION		: MyCrypt
  *	DESCRIPTION		:
  *		This function handles fiedd encryption/decryption of memory
- *	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
-	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
-	}
+ *
  *	PARAMETERS		        :
  *		action string   	: ENCRYPT or DECRYPT
  *
  *	RETURNS			:
  *		         	: None
-*/
+ */
 func MyCrypt(action string) {
-
-	//var keyStr = string(MyNonce())
-	//keycvt, errs := hex.DecodeString(string(keyin))
-	//if errs != nil {
-	//	log.Println("MyCrypt keyin", errs)
-	//}
-	//var keyStr = string(keycvt)
 
 	if action == "ENCRYPT" {
 
 		log.Println("MyCrypt encrypt ", "ENcrypt Server before", Server)
 
-		cryptoText, _ := encrypt(Server, MySecret)
+		cryptoText, _ := Encrypt(Server, MySecret)
 
 		Server = cryptoText
 
 		log.Println("MyCrypt encrypt ", "ENcrypt Server after ", Server)
 
-		cryptoText1, _ := encrypt(Caroot, MySecret)
+		cryptoText1, _ := Encrypt(Caroot, MySecret)
 		Caroot = cryptoText1
 
-		cryptoText2, _ := encrypt(Clientcert, MySecret)
+		cryptoText2, _ := Encrypt(Clientcert, MySecret)
 		Clientcert = cryptoText2
-		cryptoText3, _ := encrypt(Clientkey, MySecret)
+		cryptoText3, _ := Encrypt(Clientkey, MySecret)
 		Clientkey = cryptoText3
 
-		cryptoText4, _ := encrypt(Queue, MySecret)
+		cryptoText4, _ := Encrypt(Queue, MySecret)
 		Queue = cryptoText4
 
-		cryptoText5, _ := encrypt(Queuepassword, MySecret)
+		cryptoText5, _ := Encrypt(Queuepassword, MySecret)
 		Queuepassword = cryptoText5
 
-		cryptoText6, _ := encrypt(UserID, MySecret)
+		cryptoText6, _ := Encrypt(UserID, MySecret)
 		UserID = cryptoText6
 
-		cryptoText7, _ := encrypt(UserPassword, MySecret)
+		cryptoText7, _ := Encrypt(UserPassword, MySecret)
 		UserPassword = cryptoText7
 
-		cryptoText8, _ := encrypt(Alias, MySecret)
+		cryptoText8, _ := Encrypt(Alias, MySecret)
 		Alias = cryptoText8
 
-		cryptoText9, _ := encrypt(NodeUUID, MySecret)
+		cryptoText9, _ := Encrypt(NodeUUID, MySecret)
 		NodeUUID = cryptoText9
 
 	}
 	if action == "DECRYPT" {
 		log.Println("MyCrypt decrypt ", "decrypt Server before", Server)
-		text, _ := decrypt(Server, MySecret)
+		text, _ := Decrypt(Server, MySecret)
 		Server = text
 		log.Println("MyCrypt decrypt ", "decrypt Server after", Server)
-		text1, _ := decrypt(Caroot, MySecret)
+		text1, _ := Decrypt(Caroot, MySecret)
 		Caroot = text1
-		text2, _ := decrypt(Clientcert, MySecret)
+		text2, _ := Decrypt(Clientcert, MySecret)
 		Clientcert = text2
-		text3, _ := decrypt(Clientkey, MySecret)
+		text3, _ := Decrypt(Clientkey, MySecret)
 		Clientkey = text3
-		text4, _ := decrypt(Queue, MySecret)
+		text4, _ := Decrypt(Queue, MySecret)
 		Queue = text4
-		text5, _ := decrypt(Queuepassword, MySecret)
+		text5, _ := Decrypt(Queuepassword, MySecret)
 		Queuepassword = text5
-		text6, _ := decrypt(UserID, MySecret)
+		text6, _ := Decrypt(UserID, MySecret)
 		UserID = text6
-		text7, _ := decrypt(UserPassword, MySecret)
+		text7, _ := Decrypt(UserPassword, MySecret)
 		UserPassword = text7
-		text8, _ := decrypt(Alias, MySecret)
+		text8, _ := Decrypt(Alias, MySecret)
 		Alias = text8
-		text9, _ := decrypt(NodeUUID, MySecret)
+		text9, _ := Decrypt(NodeUUID, MySecret)
 		NodeUUID = text9
 
 	}
 }
-func encrypt(text string, MySecret string) (string, error) {
+
+/*
+ *	FUNCTION		: Encrypt
+ *	DESCRIPTION		: Encrypt a field
+ *	PARAMETERS	    : text to encrypt, secret
+ *
+ *	RETURNS			: enrypted text
+
+ */
+func Encrypt(text string, MySecret string) (string, error) {
 	block, err := aes.NewCipher([]byte(MySecret))
 	if err != nil {
 		return "", err
@@ -519,8 +515,15 @@ func encrypt(text string, MySecret string) (string, error) {
 	return Encode(cipherText), nil
 }
 
-// decrypt from base64 to decrypted string
-func decrypt(text string, MySecret string) (string, error) {
+/*
+ *	FUNCTION		: Decrypt
+ *	DESCRIPTION		: Decrypt a field
+ *	PARAMETERS	    : text to decrypt, secret
+ *
+ *	RETURNS			: derypted text
+
+ */
+func Decrypt(text string, MySecret string) (string, error) {
 	block, err := aes.NewCipher([]byte(MySecret))
 	if err != nil {
 		return "", err
