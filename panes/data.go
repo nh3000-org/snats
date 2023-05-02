@@ -664,10 +664,10 @@ func NATSErase() {
 	fmt.Printf("js1: %v\n", js1)
 	ac, err1 := js.AddConsumer(Queue, &nats.ConsumerConfig{
 		//Durable:   Alias,
-		Durable:   NodeUUID,
-		AckPolicy: nats.AckExplicitPolicy,
-
-		DeliverPolicy: nats.DeliverAllPolicy,
+		Durable:           NodeUUID,
+		AckPolicy:         nats.AckExplicitPolicy,
+		InactiveThreshold: duration,
+		DeliverPolicy:     nats.DeliverAllPolicy,
 		//		ReplayPolicy: nats.ReplayInstantPolicy,
 	})
 	if err1 != nil {
@@ -750,7 +750,8 @@ func FormatMessage(m string) string {
 	if jsonerr != nil {
 		log.Println("FormatMessage ", jsonerr)
 	}
-	return string(jsonmsg)
+	ejson, _ := Encrypt(string(jsonmsg), MySecret)
+	return string(ejson)
 
 }
 
