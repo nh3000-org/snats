@@ -15,6 +15,7 @@ import (
 	//"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -54,7 +55,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			return len(NatsMessages)
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewIcon(theme.DocumentIcon()), widget.NewLabel("Template Object"))
+			return container.NewHBox(widget.NewIcon(theme.CheckButtonCheckedIcon()), widget.NewLabel("Template Object"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
 			var prefix = ""
@@ -62,7 +63,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 				prefix = "-"
 			}
 
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(prefix + NatsMessages[id].MSalias + " - " + NatsMessages[id].MShostname)
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(prefix + NatsMessages[id].MSalias + " - " + NatsMessages[id].MSmessage)
 
 		},
 	)
@@ -86,51 +87,12 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		}
 
 		js, _ := nc.JetStream()
-		js.AddStream(&nats.StreamConfig{
-			Name:     Queue,
-			Subjects: []string{Queue},
-		})
-		// Create a Consumer
-		ac, se7 := js.AddConsumer(Queue, &nats.ConsumerConfig{
-			Durable:       Queue,
-			AckPolicy:     nats.AckExplicitPolicy,
-			DeliverPolicy: nats.DeliverAllPolicy,
-			//		ReplayPolicy: nats.ReplayInstantPolicy,
-		})
-		if se7 != nil {
-			log.Println("natsconnect se7 ", se7, ac)
-		}
-		log.Println("natsconnect se8 ")
-		sub, errsub := js.PullSubscribe(Queue, Queue, nats.BindStream(Queue))
-		if errsub != nil {
-			log.Println("pullsubscribe sub ", errsub)
-		}
-		msgs, errfetch := sub.Fetch(100)
-		if errfetch != nil {
-			log.Println("pullsubscribe fetch ", errfetch)
-		}
-		fmt.Printf("got %d messages\n", len(msgs))
-		if len(msgs) > 0 {
-
-			for i := 0; i < len(msgs); i++ {
-				msgs[i].Nak()
-				HandleMessage(msgs[i])
-				fmt.Printf("fetch message %d  ", msgs[i].Data)
-			}
-
-		}
-		//sub1, errsub := js.Subscribe(Queue, func (msg nats.Msg) {
-
-		//		})
-		//		nc.Close()
-		//ephemeralName := <-js.ConsumerNames(Queue)
-		//fmt.Printf("ephemeral name is %q\n", ephemeralName)
 
 		smbutton := widget.NewButton("Send Message", func() {
 
 			var formatMessage = FormatMessage(mymessage.Text)
 
-			js.Publish(Queue, []byte(formatMessage))
+			js.Publish(strings.ToLower(Queue), []byte(formatMessage))
 
 		})
 
@@ -153,29 +115,29 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			js, _ := nc.JetStream()
 			js.AddStream(&nats.StreamConfig{
 				Name:     Queue,
-				Subjects: []string{Queue},
+				Subjects: []string{strings.ToLower(Queue)},
 			})
-			// Create a Consumer
-			ac, se7 := js.AddConsumer(Queue, &nats.ConsumerConfig{
-				Durable:       Queue,
-				AckPolicy:     nats.AckExplicitPolicy,
-				DeliverPolicy: nats.DeliverAllPolicy,
-				//		ReplayPolicy: nats.ReplayInstantPolicy,
-			})
-			if se7 != nil {
-				log.Println("Recieve Messages AddConsumer ", se7, ac)
-			}
 
-			_, errsub := js.QueueSubscribe(Queue, Alias, func(msg *nats.Msg) {
-				log.Println("Recieve Messages Receive ", msg.Data)
-				HandleMessage(msg)
-				msg.Ack()
-
-			})
+			sub, errsub := js.PullSubscribe(Queue, "", nats.BindStream(Queue))
 			if errsub != nil {
-				log.Println("Recieve Messages Subscribe ", errsub)
+				log.Println("pullsubscribe sub ", errsub)
 			}
+			msgs, errfetch := sub.Fetch(100)
+			if errfetch != nil {
+				log.Println("pullsubscribe fetch ", errfetch)
+			}
+			fmt.Printf("got %d messages\n", len(msgs))
+			if len(msgs) > 0 {
 
+				for i := 0; i < len(msgs); i++ {
+					//msgs[i].Nak()
+
+					HandleMessage(msgs[i])
+					//fmt.Printf("fetch message %d  ", msgs[i].Data)
+				}
+
+			}
+			List.Refresh()
 		})
 
 		if !LoggedOn {
@@ -214,12 +176,24 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	)
 }
 func HandleMessage(m *nats.Msg) {
-	mm := MessageStore{}
-	err := json.Unmarshal([]byte(m.Data), &mm)
+	ms := MessageStore{}
+	var unq = true // unique message id
+	ejson, _ := Decrypt(string(m.Data), MySecret)
+	err := json.Unmarshal([]byte(ejson), &ms)
 	if err != nil {
 		log.Println("HandleMessage Unmarshall: ", err)
 	}
-	NatsMessages = append(NatsMessages, mm)
+
+	for x := 0; x < len(NatsMessages); x++ {
+		log.Println("HandleMessage store ", ms.MSiduuid, " - ", ms.MSmessage, " messages ", NatsMessages[x].MSiduuid, " - ", NatsMessages[x].MSmessage)
+		if ms.MSiduuid == NatsMessages[x].MSiduuid {
+			unq = false
+		}
+	}
+	if unq == true {
+		NatsMessages = append(NatsMessages, ms)
+	}
+
 }
 func NodeIsValid(node string) bool {
 	if node == NodeUUID {
