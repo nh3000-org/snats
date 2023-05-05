@@ -48,10 +48,22 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+/*
+*  The following fields need to be modified for you production
+*  Environment to provide maximum security
+*
+*  These fields are meant to be distributed at compile time and
+*  editable in the gui.
+*
+ */
 var MyBytes = []byte{35, 46, 57, 24, 85, 35, 24, 74, 87, 35, 88, 98, 66, 32, 14, 05}
 
-// This should be in an env file in production
 const MySecret string = "abd&1*~#^2^#s0^=)^^7%c34"
+const MyDurable string = "snatsdurable"
+const PasswordDefault = "123456" // default password shipped with app
+var xCaroot = string("-----BEGIN CERTIFICATE-----\nMIICFDCCAbugAwIBAgIUDkHxHO1DwrlkTzUimG5PoiswB6swCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAgFw0yMzAzMzExNzI5MDBaGA8yMDUzMDMyMzE3MjkwMFowZjELMAkG\nA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UEChMDU0VD\nMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9y\nZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABHXwMUfMXiJix3tuzFymcA+3RkeY\nZE7urUzVgaqkv/Oef3jhqhtf1XzK/qVYGxWWmpvADGB252PG1Mp7Z5wmzqyjRTBD\nMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQm\nFA5caanuqxGFOf9DtZkVYv5dCzAKBggqhkjOPQQDAgNHADBEAiB3BheNP4XdBZ27\nxVBQ7ztMJqK7wDi1V3LuMy5jmXr7rQIgHCse0oaiAwcl4VwF00aSshlV+T/da0Tx\n1ANkaM+rie4=\n-----END CERTIFICATE-----\n")
+var xClientcert = string("-----BEGIN CERTIFICATE-----\nMIIDUzCCAvigAwIBAgIUUyhlJt8mp1XApRbSkdrUS55LGV8wCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAeFw0yMzAzMzExNzI5MDBaFw0yODAzMjkxNzI5MDBaMHIxCzAJBgNV\nBAYTAlVTMRAwDgYDVQQIEwdGbG9yaWRhMRIwEAYDVQQHEwlDcmVzdHZpZXcxGjAY\nBgNVBAoTEU5ldyBIb3Jpem9ucyAzMDAwMSEwHwYDVQQLExhuYXRzLm5ld2hvcml6\nb25zMzAwMC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDFttVH\nQ131JYwazAQMm0XAQvRvTjTjOY3aei1++mmQ+NQ9mrOFk6HlZFoKqsy6+HPXsB9x\nQbWlYvUOuqBgb9xFQZoL8jiKskLLrXoIxUAlIBTlyf76r4SV+ZpxJYoGzXNTedaU\n0EMTyAiUQ6nBbFMXiehN5q8VzxtTESk7QguGdAUYXYsCmYBvQtBXoFYO5CHyhPqu\nOZh7PxRAruYypEWVFBA+29+pwVeaRHzpfd/gKLY4j2paInFn7RidYUTqRH97BjdR\nSZpOJH6fD7bI4L09pnFtII5pAARSX1DntS0nWIWhYYI9use9Hi/B2DRQLcDSy1G4\n0t1z4cdyjXxbFENTAgMBAAGjgawwgakwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQM\nMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFAzgPVB2/sfT7R0U\ne3iXRSvUkfoQMB8GA1UdIwQYMBaAFCYUDlxpqe6rEYU5/0O1mRVi/l0LMDQGA1Ud\nEQQtMCuCGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9yZ4IJMTI3LDAsMCwxhwTAqABn\nMAoGCCqGSM49BAMCA0kAMEYCIQCDlUH2j69mJ4MeKvI8noOmvLHfvP4qMy5nFW2F\nPT5UxgIhAL6pHFyEbANtSkcVJqxTyKE4GTXcHc4DB43Z1F7VxSJj\n-----END CERTIFICATE-----\n")
+var xClientkey = string("-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAxbbVR0Nd9SWMGswEDJtFwEL0b0404zmN2notfvppkPjUPZqz\nhZOh5WRaCqrMuvhz17AfcUG1pWL1DrqgYG/cRUGaC/I4irJCy616CMVAJSAU5cn+\n+q+ElfmacSWKBs1zU3nWlNBDE8gIlEOpwWxTF4noTeavFc8bUxEpO0ILhnQFGF2L\nApmAb0LQV6BWDuQh8oT6rjmYez8UQK7mMqRFlRQQPtvfqcFXmkR86X3f4Ci2OI9q\nWiJxZ+0YnWFE6kR/ewY3UUmaTiR+nw+2yOC9PaZxbSCOaQAEUl9Q57UtJ1iFoWGC\nPbrHvR4vwdg0UC3A0stRuNLdc+HHco18WxRDUwIDAQABAoIBACe0XMZP4Al//c/P\n0qxZbjt69q13jiVnhHYwfPx3+0UywySP8adMi4GOkop73Ftb05+n7diHspvA8KeB\nkP1s2VZLI01s2i/4NnPCpbQnMIeEFs5Cr2LWZpDbrEk2ma5eCd/kotQFssLBM//a\nSrfeMh2TA0TJo7WEft9Cnf4ZeEkKnycplfvwTyv286iFZCYo2dv66BfTej6kkVCo\nAi+ZVCe2zSqRYyr0u4/j/kE3b3eSkCnY2IVcqlP7epuEGVOZyxeFLwM5ljbWL816\npA6WIJgQo2EQ1N7L531neg5WjXQ/UwTQoXP1jvuuVtKtOBFqm1IshEyFk3WpsfpD\nr16OTdECgYEA6FB6NYxYtnWPaIYAOqP7GtMKoJujH8MtZy6J33LkxI7nPkMkn8Mv\nva32tvjU4Bu1FVNp9k5guC+b+8ixXK0URj25IOhDs6K57tck22W9WiTZlmnkCO01\nJOavrelWbvYt5xNWIdnPualoPfGB0iJKXsKY/bpH4eVfhWwpNPI5sMkCgYEA2d9G\nEPuWN6gUjZ+JfdS+0WHK1yGD7thXs7MPUlhGqDzBryh2dkywyo8U8+tMLuDok1RZ\njnT3PYkLQEpzoV0qBkpFFShL6ubaGmDz1UZsozl0YcIg4diZeuPHnIAeXOFrhgYf\n825163LmT3jYHCROFEMLtTYyIQP0EznE+qFT3TsCgYEApgtvbfqkJbWdDL5KR5+R\nCLky7VyQmVEtkIRI8zbxoDPrwCrJcI9X/iDrKBhuPshPA7EdGXkn1D3jJXFqo6zp\nwtK3EXgxe6Ghd766jz4Guvl/s+x3mpHA3GEtzAXtS14VrQW7GHLP8AnPggauHX14\n3oYER8XvPtxtC7YlNbyz01ECgYAe2b7SKM3ck7BVXYHaj4V1oKNYUyaba4b/qxtA\nTb+zkubaJqCfn7xo8lnFMExZVv+X3RnRUj6wN/ef4ur8rnSE739Yv5wAZy/7DD96\ns74uXrRcI2EEmechv59ESeACxuiy0as0jS+lZ1+1YSc41Os5c0T1I/d1NVoaXtPF\nqZJ2gQKBgBp/XavdULBPzC7B8tblySzmL01qJZV7MSSVo2/1vJ7gPM0nQPZdTDog\nTfA5QKSX9vFTGC9CZHSJ+fabYDDd6+3UNYUKINfr+kwu9C2cysbiPaM3H27WR5mW\n5LhStAfwuRRYBDsG2ndjraxcBrrPdtkbS0dpeQUDJxvkMIuLHnhQ\n-----END RSA PRIVATE KEY-----\n")
 
 // version
 const Version = "snats-beta"
@@ -103,7 +115,7 @@ var NodeUUID string     // nodeuuid created on logon
  */
 
 //const Cipherkey = "6469616e676520746869732070617373776f726420746f20612073656372657455hhrrddewwss" // 32 byte string  for hash value of cipher key to decrypt json fields modify this field for your ntwork
-const PasswordDefault = "123456" // default password shipped with app
+
 //const MessageFormat = "HostName: = #HOSTNAME IPs : #IPS\n Message: #MESSAGE\n Date/Time #DATETIME\n" // default message for posting
 /*
  *	  Confignats is used to hold config.json fields
@@ -241,17 +253,13 @@ func MyJson(action string) {
 		var c = Confignats{}
 		Server = string("nats://192.168.0.103:4222")
 
-		var xCaroot = string("-----BEGIN CERTIFICATE-----\nMIICFDCCAbugAwIBAgIUDkHxHO1DwrlkTzUimG5PoiswB6swCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAgFw0yMzAzMzExNzI5MDBaGA8yMDUzMDMyMzE3MjkwMFowZjELMAkG\nA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UEChMDU0VD\nMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9y\nZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABHXwMUfMXiJix3tuzFymcA+3RkeY\nZE7urUzVgaqkv/Oef3jhqhtf1XzK/qVYGxWWmpvADGB252PG1Mp7Z5wmzqyjRTBD\nMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQm\nFA5caanuqxGFOf9DtZkVYv5dCzAKBggqhkjOPQQDAgNHADBEAiB3BheNP4XdBZ27\nxVBQ7ztMJqK7wDi1V3LuMy5jmXr7rQIgHCse0oaiAwcl4VwF00aSshlV+T/da0Tx\n1ANkaM+rie4=\n-----END CERTIFICATE-----\n")
-
 		Caroot = strings.ReplaceAll(xCaroot, "\n", "<>")
 
-		var xClientcert = string("-----BEGIN CERTIFICATE-----\nMIIDUzCCAvigAwIBAgIUUyhlJt8mp1XApRbSkdrUS55LGV8wCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAeFw0yMzAzMzExNzI5MDBaFw0yODAzMjkxNzI5MDBaMHIxCzAJBgNV\nBAYTAlVTMRAwDgYDVQQIEwdGbG9yaWRhMRIwEAYDVQQHEwlDcmVzdHZpZXcxGjAY\nBgNVBAoTEU5ldyBIb3Jpem9ucyAzMDAwMSEwHwYDVQQLExhuYXRzLm5ld2hvcml6\nb25zMzAwMC5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDFttVH\nQ131JYwazAQMm0XAQvRvTjTjOY3aei1++mmQ+NQ9mrOFk6HlZFoKqsy6+HPXsB9x\nQbWlYvUOuqBgb9xFQZoL8jiKskLLrXoIxUAlIBTlyf76r4SV+ZpxJYoGzXNTedaU\n0EMTyAiUQ6nBbFMXiehN5q8VzxtTESk7QguGdAUYXYsCmYBvQtBXoFYO5CHyhPqu\nOZh7PxRAruYypEWVFBA+29+pwVeaRHzpfd/gKLY4j2paInFn7RidYUTqRH97BjdR\nSZpOJH6fD7bI4L09pnFtII5pAARSX1DntS0nWIWhYYI9use9Hi/B2DRQLcDSy1G4\n0t1z4cdyjXxbFENTAgMBAAGjgawwgakwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQM\nMAoGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFAzgPVB2/sfT7R0U\ne3iXRSvUkfoQMB8GA1UdIwQYMBaAFCYUDlxpqe6rEYU5/0O1mRVi/l0LMDQGA1Ud\nEQQtMCuCGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9yZ4IJMTI3LDAsMCwxhwTAqABn\nMAoGCCqGSM49BAMCA0kAMEYCIQCDlUH2j69mJ4MeKvI8noOmvLHfvP4qMy5nFW2F\nPT5UxgIhAL6pHFyEbANtSkcVJqxTyKE4GTXcHc4DB43Z1F7VxSJj\n-----END CERTIFICATE-----\n")
 		Clientcert = strings.ReplaceAll(xClientcert, "\n", "<>")
 
-		var xClientkey = string("-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAxbbVR0Nd9SWMGswEDJtFwEL0b0404zmN2notfvppkPjUPZqz\nhZOh5WRaCqrMuvhz17AfcUG1pWL1DrqgYG/cRUGaC/I4irJCy616CMVAJSAU5cn+\n+q+ElfmacSWKBs1zU3nWlNBDE8gIlEOpwWxTF4noTeavFc8bUxEpO0ILhnQFGF2L\nApmAb0LQV6BWDuQh8oT6rjmYez8UQK7mMqRFlRQQPtvfqcFXmkR86X3f4Ci2OI9q\nWiJxZ+0YnWFE6kR/ewY3UUmaTiR+nw+2yOC9PaZxbSCOaQAEUl9Q57UtJ1iFoWGC\nPbrHvR4vwdg0UC3A0stRuNLdc+HHco18WxRDUwIDAQABAoIBACe0XMZP4Al//c/P\n0qxZbjt69q13jiVnhHYwfPx3+0UywySP8adMi4GOkop73Ftb05+n7diHspvA8KeB\nkP1s2VZLI01s2i/4NnPCpbQnMIeEFs5Cr2LWZpDbrEk2ma5eCd/kotQFssLBM//a\nSrfeMh2TA0TJo7WEft9Cnf4ZeEkKnycplfvwTyv286iFZCYo2dv66BfTej6kkVCo\nAi+ZVCe2zSqRYyr0u4/j/kE3b3eSkCnY2IVcqlP7epuEGVOZyxeFLwM5ljbWL816\npA6WIJgQo2EQ1N7L531neg5WjXQ/UwTQoXP1jvuuVtKtOBFqm1IshEyFk3WpsfpD\nr16OTdECgYEA6FB6NYxYtnWPaIYAOqP7GtMKoJujH8MtZy6J33LkxI7nPkMkn8Mv\nva32tvjU4Bu1FVNp9k5guC+b+8ixXK0URj25IOhDs6K57tck22W9WiTZlmnkCO01\nJOavrelWbvYt5xNWIdnPualoPfGB0iJKXsKY/bpH4eVfhWwpNPI5sMkCgYEA2d9G\nEPuWN6gUjZ+JfdS+0WHK1yGD7thXs7MPUlhGqDzBryh2dkywyo8U8+tMLuDok1RZ\njnT3PYkLQEpzoV0qBkpFFShL6ubaGmDz1UZsozl0YcIg4diZeuPHnIAeXOFrhgYf\n825163LmT3jYHCROFEMLtTYyIQP0EznE+qFT3TsCgYEApgtvbfqkJbWdDL5KR5+R\nCLky7VyQmVEtkIRI8zbxoDPrwCrJcI9X/iDrKBhuPshPA7EdGXkn1D3jJXFqo6zp\nwtK3EXgxe6Ghd766jz4Guvl/s+x3mpHA3GEtzAXtS14VrQW7GHLP8AnPggauHX14\n3oYER8XvPtxtC7YlNbyz01ECgYAe2b7SKM3ck7BVXYHaj4V1oKNYUyaba4b/qxtA\nTb+zkubaJqCfn7xo8lnFMExZVv+X3RnRUj6wN/ef4ur8rnSE739Yv5wAZy/7DD96\ns74uXrRcI2EEmechv59ESeACxuiy0as0jS+lZ1+1YSc41Os5c0T1I/d1NVoaXtPF\nqZJ2gQKBgBp/XavdULBPzC7B8tblySzmL01qJZV7MSSVo2/1vJ7gPM0nQPZdTDog\nTfA5QKSX9vFTGC9CZHSJ+fabYDDd6+3UNYUKINfr+kwu9C2cysbiPaM3H27WR5mW\n5LhStAfwuRRYBDsG2ndjraxcBrrPdtkbS0dpeQUDJxvkMIuLHnhQ\n-----END RSA PRIVATE KEY-----\n")
 		Clientkey = strings.ReplaceAll(xClientkey, "\n", "<>")
 
-		Queue = string("messages")
+		Queue = string("MESSAGES")
 
 		Alias = string("Myalias")
 
@@ -433,13 +441,9 @@ func MyCrypt(action string) {
 
 	if action == "ENCRYPT" {
 
-		log.Println("MyCrypt encrypt ", "ENcrypt Server before", Server)
-
 		cryptoText, _ := Encrypt(Server, MySecret)
 
 		Server = cryptoText
-
-		log.Println("MyCrypt encrypt ", "ENcrypt Server after ", Server)
 
 		cryptoText1, _ := Encrypt(Caroot, MySecret)
 		Caroot = cryptoText1
@@ -469,10 +473,8 @@ func MyCrypt(action string) {
 
 	}
 	if action == "DECRYPT" {
-		log.Println("MyCrypt decrypt ", "decrypt Server before", Server)
 		text, _ := Decrypt(Server, MySecret)
 		Server = text
-		log.Println("MyCrypt decrypt ", "decrypt Server after", Server)
 		text1, _ := Decrypt(Caroot, MySecret)
 		Caroot = text1
 		text2, _ := Decrypt(Clientcert, MySecret)
@@ -550,7 +552,7 @@ func Decrypt(text string, MySecret string) (string, error) {
 func MyHash(action string, hash string) {
 
 	if action == "CREATE" {
-		log.Println("MyHash  CREATE ", DataStore("config.hash"))
+		//log.Println("MyHash  CREATE ", DataStore("config.hash"))
 		err := storage.Delete(DataStore("config.hash"))
 		if err != nil {
 			log.Println("MyHash Error Deleting", DataStore("config.hash"))
@@ -563,7 +565,7 @@ func MyHash(action string, hash string) {
 
 	}
 	if action == "LOAD" {
-		log.Println("MyHash  LOAD", DataStore("config.hash"))
+		//log.Println("MyHash  LOAD", DataStore("config.hash"))
 		ph, errf := os.ReadFile(DataStore("config.hash").Path())
 		Passwordhash = string(ph)
 
@@ -573,7 +575,7 @@ func MyHash(action string, hash string) {
 
 	}
 	if action == "SAVE" {
-		log.Println("MyHash Error save ", DataStore("config.hash"))
+		//log.Println("MyHash Error save ", DataStore("config.hash"))
 		errf := storage.Delete(DataStore("config.hash"))
 
 		if errf != nil {
@@ -582,42 +584,10 @@ func MyHash(action string, hash string) {
 		wrt, errwrite := storage.Writer(DataStore("config.hash"))
 		_, err2 := wrt.Write([]byte(Passwordhash))
 		if errwrite != nil || err2 != nil {
-			log.Println("MyHash Error Writing", DataStore("config.hash"))
+			log.Println("MyHash SAVE Error Writing", DataStore("config.hash"))
 		}
 
 	}
-}
-
-/*
- *	FUNCTION		: NATSPublish
- *	DESCRIPTION		:
- *		This function publishes to the select queue
- *MyJson LOAD
- *	PARAMETERS		:
- *
- *	RETURNS		!	:
- */
-func NATSPublishDEPRECATED(mm MessageStore) {
-
-	NC, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
-	//c, _ := nats.NewEncodedConn(NC, nats.JSON_ENCODER)
-	if err == nil {
-		//log.Println("publishing  ", mm)
-
-		js, _ := NC.JetStream()
-		js.AddStream(&nats.StreamConfig{
-			Name:     Queue,
-			Subjects: []string{Queue + ".>"},
-		})
-		msg, err1 := json.Marshal(mm)
-		if err1 != nil {
-			log.Println("publishing err1 ", err1)
-		}
-		js.Publish(Queue+"."+Alias, []byte(msg))
-	} else {
-		log.Println("publish ", err)
-	}
-
 }
 
 /*
@@ -653,9 +623,13 @@ func NATSErase() {
 
 	js1, err1 := js.AddStream(&nats.StreamConfig{
 		Name:     Queue,
-		Subjects: []string{strings.ToLower(Queue)},
+		Subjects: []string{(Queue) + ".>"},
 		Storage:  nats.FileStorage,
 		MaxAge:   duration,
+
+		Discard:           nats.DiscardOld,
+		MaxMsgsPerSubject: 1000,
+		AllowRollup:       true,
 	})
 
 	if err1 != nil {
@@ -664,8 +638,8 @@ func NATSErase() {
 	fmt.Printf("js1: %v\n", js1)
 	ac, err1 := js.AddConsumer(Queue, &nats.ConsumerConfig{
 		//Durable:   Alias,
-		Durable:           NodeUUID,
-		AckPolicy:         nats.AckExplicitPolicy,
+		Durable: MyDurable,
+
 		InactiveThreshold: duration,
 		DeliverPolicy:     nats.DeliverAllPolicy,
 		//		ReplayPolicy: nats.ReplayInstantPolicy,
@@ -673,16 +647,7 @@ func NATSErase() {
 	if err1 != nil {
 		log.Println("NatsErase AddConsumer ", err1, " ", ac)
 	}
-	//ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	//defer cancel()
-	//for info := range js.StreamsInfo(nats.Context(ctx)) {
-	//	fmt.Println("stream name:", info.Config.Name)
-	//}
 
-	// Get information about all consumers (with MaxWait JSOpt)
-	//for info := range js.ConsumersInfo(Queue, nats.MaxWait(10*time.Second)) {
-	//	fmt.Println("consumer name:", info.Name)
-	//}
 	nc.Close()
 
 }
@@ -722,27 +687,32 @@ func FormatMessage(m string) string {
 			}
 		}
 		for i, s := range as {
-			EncMessage.MShostname += " mac " + strconv.Itoa(i) + " - " + s + ","
+			EncMessage.MShostname += " mac: " + strconv.Itoa(i) + " - " + s + ","
+		}
+		addrs, _ := net.InterfaceAddrs()
+
+		for _, addr := range addrs {
+			EncMessage.MShostname += "\n addrs: " + addr.String() + ","
 		}
 
 	}
 	EncMessage.MSnodeuuid = NodeUUID
 
-	addrs, err := net.LookupHost(name)
-	var addresstring = ""
-	if err == nil {
-		for _, a := range addrs {
-			addresstring += a
-			addresstring += ","
-		}
-		EncMessage.MSipadrs = addresstring
-
-	} else {
-		EncMessage.MSipadrs = "No IP"
-	}
+	//	addrs, err := net.LookupHost(name)
+	//	var addresstring = ""
+	//	if err == nil {
+	//		for _, a := range addrs {
+	//			addresstring += a
+	//			addresstring += ","
+	//		}
+	//		EncMessage.MSipadrs = "ip " + addresstring
+	//
+	//	} else {
+	//		EncMessage.MSipadrs = "No IP"
+	//	}
 	EncMessage.MSalias = Alias
 
-	EncMessage.MSiduuid = uuid.New().String()
+	EncMessage.MSiduuid = "Node: " + uuid.New().String()
 
 	EncMessage.MSmessage = m
 	//EncMessage += m
