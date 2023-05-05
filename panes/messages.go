@@ -92,7 +92,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 			var formatMessage = FormatMessage(mymessage.Text)
 
-			js.Publish(strings.ToLower(Queue), []byte(formatMessage))
+			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, []byte(formatMessage))
 
 		})
 
@@ -115,10 +115,10 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			js, _ := nc.JetStream()
 			js.AddStream(&nats.StreamConfig{
 				Name:     Queue,
-				Subjects: []string{strings.ToLower(Queue)},
+				Subjects: []string{strings.ToLower(Queue) + NodeUUID},
 			})
 
-			sub, errsub := js.PullSubscribe(Queue, "", nats.BindStream(Queue))
+			sub, errsub := js.PullSubscribe(strings.ToLower(Queue)+".*", "", nats.BindStream(Queue))
 			if errsub != nil {
 				log.Println("pullsubscribe sub ", errsub)
 			}
@@ -130,7 +130,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			if len(msgs) > 0 {
 
 				for i := 0; i < len(msgs); i++ {
-					//msgs[i].Nak()
+					msgs[i].Nak()
 
 					HandleMessage(msgs[i])
 					//fmt.Printf("fetch message %d  ", msgs[i].Data)
