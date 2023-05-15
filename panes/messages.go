@@ -13,7 +13,7 @@ package panes
 
 import (
 	//"encoding/json"
-	"fmt"
+	//	"fmt"
 	"log"
 	"strings"
 
@@ -30,7 +30,7 @@ import (
 var EncMessage MessageStore   // message store
 const QueueCheckInterval = 30 // check interval in seconds
 /*
- *	FUNCTION		: messagesScren
+ *	FUNCTION		: messagesScreen
  *	DESCRIPTION		:
  *		This function returns a message window
  *
@@ -41,8 +41,8 @@ const QueueCheckInterval = 30 // check interval in seconds
  *
  */
 func messagesScreen(_ fyne.Window) fyne.CanvasObject {
+	errors := widget.NewLabel("...")
 
-	//SaveCarootToFS()
 	mymessage := widget.NewMultiLineEntry()
 	mymessage.SetPlaceHolder("Enter Message For Encryption")
 	mymessage.SetMinRowsVisible(5)
@@ -58,12 +58,8 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			return container.NewHBox(widget.NewIcon(theme.CheckButtonCheckedIcon()), widget.NewLabel("Template Object"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-			var prefix = ""
-			if !NodeIsValid(NatsMessages[id].MSnodeuuid) {
-				prefix = "-"
-			}
 
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(prefix + NatsMessages[id].MSalias + " - " + NatsMessages[id].MSmessage)
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias + " - " + NatsMessages[id].MSmessage)
 
 		},
 	)
@@ -80,19 +76,18 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	List.Resize(fyne.NewSize(500, 5000))
 	List.Refresh()
 	if PasswordValid == true {
-		//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
 		nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 		if err != nil {
-			log.Println("natsconnect", err, " pv ", PasswordValid)
+			log.Println("Messages", err)
 		}
 
 		js, _ := nc.JetStream()
 
 		smbutton := widget.NewButton("Send Message", func() {
 
-			var formatMessage = FormatMessage(mymessage.Text)
+			var formatedMessage = FormatMessage(mymessage.Text)
 
-			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, []byte(formatMessage))
+			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, []byte(formatedMessage))
 
 		})
 
@@ -104,29 +99,34 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			nil,
 			mymessage,
 		)
+
 		// recieve messages
 		recbutton := widget.NewButton("Recieve Messages", func() {
 			//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
+			NatsMessages = nil
 			nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 			if err != nil {
-				log.Println("Recieve Messages ", err, " pv ", PasswordValid)
+				errors.SetText("Receive Messaged " + err.Error())
+				log.Println("messages.go Recieve Messages ", err, " pv ", PasswordValid)
 			}
 
 			js, _ := nc.JetStream()
 			js.AddStream(&nats.StreamConfig{
 				Name:     Queue,
-				Subjects: []string{strings.ToLower(Queue) + NodeUUID},
+				Subjects: []string{strings.ToLower(Queue) + ".>"},
 			})
 
-			sub, errsub := js.PullSubscribe(strings.ToLower(Queue)+".*", "", nats.BindStream(Queue))
+			sub, errsub := js.PullSubscribe("", "", nats.BindStream(Queue))
 			if errsub != nil {
-				log.Println("pullsubscribe sub ", errsub)
+				log.Println("messages.go PullSubscribe Sub ", errsub)
+				errors.SetText("PullSubscribe Sub " + errsub.Error())
 			}
 			msgs, errfetch := sub.Fetch(100)
 			if errfetch != nil {
-				log.Println("pullsubscribe fetch ", errfetch)
+				errors.SetText("PullSubscribe Fetch " + errfetch.Error())
+				log.Println("messages.go PullSubscribe Fetch ", errfetch)
 			}
-			fmt.Printf("got %d messages\n", len(msgs))
+			log.Println("messages: ", len(msgs))
 			if len(msgs) > 0 {
 
 				for i := 0; i < len(msgs); i++ {
@@ -144,14 +144,21 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			mymessage.Disable()
 			smbutton.Disable()
 			recbutton.Disable()
-			ErrorMessage = "Please Logon"
+			ErrorMessage = "Please Logon First"
 			//ErrorScreen(TopWindow)
 		}
+		bottombox := container.NewBorder(
 
+			recbutton,
+			errors,
+			nil,
+			nil,
+			nil,
+		)
 		return container.NewBorder(
 
 			topbox,
-			recbutton,
+			bottombox,
 			nil,
 			nil,
 
@@ -177,29 +184,37 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 }
 func HandleMessage(m *nats.Msg) {
 	ms := MessageStore{}
-	var unq = true // unique message id
+	var inmap = true // unique message id
 	ejson, _ := Decrypt(string(m.Data), MySecret)
 	err := json.Unmarshal([]byte(ejson), &ms)
 	if err != nil {
 		log.Println("HandleMessage Unmarshall: ", err)
 	}
 
-	for x := 0; x < len(NatsMessages); x++ {
-		log.Println("HandleMessage store ", ms.MSiduuid, " - ", ms.MSmessage, " messages ", NatsMessages[x].MSiduuid, " - ", NatsMessages[x].MSmessage)
-		if ms.MSiduuid == NatsMessages[x].MSiduuid {
-			unq = false
-		}
-	}
-	if unq == true {
+	inmap = NodeMap("MI" + ms.MSiduuid)
+	if inmap == false {
 		NatsMessages = append(NatsMessages, ms)
 	}
 
 }
-func NodeIsValid(node string) bool {
-	if node == NodeUUID {
-		return true
-	}
 
-	return false
+/*
+ *	FUNCTION		: NodeMap
+ *	DESCRIPTION		:
+ *		This function returns true if present
+ *
+ *	PARAMETERS		: action + node  to lookup
+ *                    MI + IDuuid for message id
+ *                    AL + Alias for user id
+ *
+ *
+ *	RETURNS			: Array of indexes
+ *
+ */
+func NodeMap(node string) bool {
+
+	_, x := MyMap[node]
+
+	return x
 
 }
