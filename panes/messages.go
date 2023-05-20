@@ -16,6 +16,7 @@ import (
 	//	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -85,9 +86,9 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 		smbutton := widget.NewButton("Send Message", func() {
 
-			var formatedMessage = FormatMessage(mymessage.Text)
+			//var formatedMessage = FormatMessage("NEW", mymessage.Text,nil)
 
-			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, []byte(formatedMessage))
+			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, FormatMessage(mymessage.Text))
 
 		})
 
@@ -112,10 +113,22 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 			js, _ := nc.JetStream()
 			js.AddStream(&nats.StreamConfig{
-				Name:     Queue,
+				Name: Queue + NodeUUID,
+
 				Subjects: []string{strings.ToLower(Queue) + ".>"},
 			})
-
+			var duration time.Duration = 604800000000
+			ac, err1 := js.AddConsumer(Queue, &nats.ConsumerConfig{
+				Durable:           NodeUUID,
+				AckPolicy:         nats.AckExplicitPolicy,
+				InactiveThreshold: duration,
+				DeliverPolicy:     nats.DeliverAllPolicy,
+				ReplayPolicy:      nats.ReplayInstantPolicy,
+			})
+			if err1 != nil {
+				log.Println("messages.go AddConsumer ", err1, " ", ac)
+				errors.SetText("Add Consumer " + err1.Error())
+			}
 			sub, errsub := js.PullSubscribe("", "", nats.BindStream(Queue))
 			if errsub != nil {
 				log.Println("messages.go PullSubscribe Sub ", errsub)
@@ -133,6 +146,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 					msgs[i].Nak()
 
 					HandleMessage(msgs[i])
+
 					//fmt.Printf("fetch message %d  ", msgs[i].Data)
 				}
 
@@ -202,7 +216,75 @@ func HandleMessage(m *nats.Msg) {
  *	FUNCTION		: NodeMap
  *	DESCRIPTION		:
  *		This function returns true if present
+ */*
+2
+ *      PROGRAM         : messages.go
+3
+ *      DESCRIPTION             :
+4
  *
+5
+ *              This program handles setting and recieving messages
+6
+ *
+7
+ *      PARAMETERS              :
+8
+  *
+9
+ *      RETURNS                 :
+10
+ *              Canvas
+11
+*/
+12
+package panes
+13
+​
+14
+import (
+15
+        //"encoding/json"
+16
+        //      "fmt"
+17
+        "log"
+18
+        "strings"
+19
+​
+20
+        "fyne.io/fyne/v2"
+21
+        "fyne.io/fyne/v2/container"
+22
+        "github.com/goccy/go-json"
+23
+        "github.com/nats-io/nats.go"
+24
+​
+25
+        //      "fyne.io/fyne/v2/dialog"
+26
+        "fyne.io/fyne/v2/theme"
+27
+        "fyne.io/fyne/v2/widget"
+28
+)
+29
+​
+30
+var EncMessage MessageStore   // message store
+31
+const QueueCheckInterval = 30 // check interval in seconds
+32
+/*
+33
+ *      FUNCTION                : messagesScreen
+34
+ *      DESCRIPTION             :
+35
+ *              This function returns a message window
  *	PARAMETERS		: action + node  to lookup
  *                    MI + IDuuid for message id
  *                    AL + Alias for user id
