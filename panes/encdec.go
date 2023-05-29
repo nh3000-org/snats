@@ -1,39 +1,13 @@
-/*
- *	PROGRAM		: encdec.go
- *	DESCRIPTION		:
- *
- *		This program encrypt and decrypts a string
- *
- *	PARAMETERS		:
-  *
- *	RETURNS			:
- *		Canvas
-*/
 package panes
 
 import (
-
 	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-
-
-
 	"fyne.io/fyne/v2/widget"
 )
 
-/*
- *	FUNCTION		: encdecScreen
- *	DESCRIPTION		:
- *		This function returns a message window
- *
- *	PARAMETERS		:
- *
- *
- *	RETURNS			:
- *
- */
 func encdecScreen(_ fyne.Window) fyne.CanvasObject {
 	errors := widget.NewLabel("...")
 
@@ -67,7 +41,6 @@ func encdecScreen(_ fyne.Window) fyne.CanvasObject {
 		if iserrors == false {
 			t, _ := Encrypt(myinputtext.Text, password.Text)
 			myoutputtext.SetText(string(t))
-
 		}
 	})
 
@@ -151,14 +124,11 @@ func encdecScreen(_ fyne.Window) fyne.CanvasObject {
 	)
 
 	return container.NewBorder(
-
 		c3box,
-
 		errors,
 		nil,
 		nil,
 		nil,
 	)
 
-	//)
 }
