@@ -1,46 +1,21 @@
-/*
- *	PROGRAM		: messages.go
- *	DESCRIPTION		:
- *
- *		This program handles setting and recieving messages
- *
- *	PARAMETERS		:
-  *
- *	RETURNS			:
- *		Canvas
-*/
 package panes
 
 import (
-	//"encoding/json"
-	//	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"github.com/goccy/go-json"
-	"github.com/nats-io/nats.go"
-
-	//	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/goccy/go-json"
+	"github.com/nats-io/nats.go"
 )
 
 var EncMessage MessageStore   // message store
 const QueueCheckInterval = 30 // check interval in seconds
-/*
- *	FUNCTION		: messagesScreen
- *	DESCRIPTION		:
- *		This function returns a message window
- *
- *	PARAMETERS		:
- *
- *
- *	RETURNS			:
- *
- */
+
 func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	errors := widget.NewLabel("...")
 
@@ -59,9 +34,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			return container.NewHBox(widget.NewIcon(theme.CheckButtonCheckedIcon()), widget.NewLabel("Template Object"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias + " - " + NatsMessages[id].MSmessage)
-
 		},
 	)
 	List.OnSelected = func(id widget.ListItemID) {
@@ -85,15 +58,10 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		js, _ := nc.JetStream()
 
 		smbutton := widget.NewButton("Send Message", func() {
-
-			//var formatedMessage = FormatMessage("NEW", mymessage.Text,nil)
-
 			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, FormatMessage(mymessage.Text))
-
 		})
 
 		topbox := container.NewBorder(
-
 			widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			smbutton,
 			nil,
@@ -141,13 +109,9 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			}
 			log.Println("messages: ", len(msgs))
 			if len(msgs) > 0 {
-
 				for i := 0; i < len(msgs); i++ {
 					msgs[i].Nak()
-
 					HandleMessage(msgs[i])
-
-					//fmt.Printf("fetch message %d  ", msgs[i].Data)
 				}
 
 			}
@@ -159,10 +123,8 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			smbutton.Disable()
 			recbutton.Disable()
 			ErrorMessage = "Please Logon First"
-			//ErrorScreen(TopWindow)
 		}
 		bottombox := container.NewBorder(
-
 			recbutton,
 			errors,
 			nil,
@@ -170,18 +132,13 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			nil,
 		)
 		return container.NewBorder(
-
 			topbox,
 			bottombox,
 			nil,
 			nil,
-
-			//widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
-			// natsmessages is message q
-			//		container.NewVScroll(
 			container.NewHSplit(List, container.NewCenter(hbox)),
 		)
-		//)
+
 	}
 	return container.NewBorder(
 
@@ -189,10 +146,6 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		nil,
 		nil,
 		nil,
-
-		//widget.NewLabel(""), // balance the header on the tutorial screen we leave blank on this content
-		// natsmessages is message q
-		//		container.NewVScroll(
 		container.NewHSplit(List, container.NewCenter(hbox)),
 	)
 }
@@ -212,91 +165,7 @@ func HandleMessage(m *nats.Msg) {
 
 }
 
-/*
- *	FUNCTION		: NodeMap
- *	DESCRIPTION		:
- *		This function returns true if present
- */*
-2
- *      PROGRAM         : messages.go
-3
- *      DESCRIPTION             :
-4
- *
-5
- *              This program handles setting and recieving messages
-6
- *
-7
- *      PARAMETERS              :
-8
-  *
-9
- *      RETURNS                 :
-10
- *              Canvas
-11
-*/
-12
-package panes
-13
-​
-14
-import (
-15
-        //"encoding/json"
-16
-        //      "fmt"
-17
-        "log"
-18
-        "strings"
-19
-​
-20
-        "fyne.io/fyne/v2"
-21
-        "fyne.io/fyne/v2/container"
-22
-        "github.com/goccy/go-json"
-23
-        "github.com/nats-io/nats.go"
-24
-​
-25
-        //      "fyne.io/fyne/v2/dialog"
-26
-        "fyne.io/fyne/v2/theme"
-27
-        "fyne.io/fyne/v2/widget"
-28
-)
-29
-​
-30
-var EncMessage MessageStore   // message store
-31
-const QueueCheckInterval = 30 // check interval in seconds
-32
-/*
-33
- *      FUNCTION                : messagesScreen
-34
- *      DESCRIPTION             :
-35
- *              This function returns a message window
- *	PARAMETERS		: action + node  to lookup
- *                    MI + IDuuid for message id
- *                    AL + Alias for user id
- *
- *
- *	RETURNS			: Array of indexes
- *
- */
 func NodeMap(node string) bool {
-
 	_, x := MyMap[node]
-
 	return x
-
 }
