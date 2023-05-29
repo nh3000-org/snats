@@ -1,27 +1,17 @@
-/*
- *	PROGRAM		: mai.go
- *	DESCRIPTION		:
- *
- *		This program is the control for app.
- *
- *	PARAMETERS		:
-  *
- *	RETURNS			:
- *
-*/
+
 package main
 
 import (
-	"log"
+	//"log"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
+	//"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/storage"
+	//"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-
+	//"panes/data"
 	"github.com/nh3000-org/snats/panes"
 )
 
@@ -29,36 +19,30 @@ const preferenceCurrentApplication = "currentApplication"
 
 var TopWindow fyne.Window
 
-/*
- *	FUNCTION		: main
- *	DESCRIPTION		:
- *		Handle user interface
- *
- *	PARAMETERS		:
- *		        	:
- *
- *	RETURNS			:
- *
- */
+var ErrorMessage = "..."
+
+//var MyApp fyne.App
+
 func main() {
-	a := app.NewWithID("org.nh3000.snats")
-	a.SetIcon(theme.FyneLogo())
-	makeTray(a)
-	logLifecycle(a)
-	w := a.NewWindow("Secure NATS BETA")
+	//MyApp := app.NewWithID("org.nh3000.snats")
+	panes.MyJson("LOAD")
+	panes.MyAppDup = panes.GetMyApp()
+	panes.MyAppDup.SetIcon(theme.FyneLogo())
+	makeTray(panes.MyAppDup)
+	logLifecycle(panes.MyAppDup)
+	w := panes.MyAppDup.NewWindow("Secure NATS BETA")
 	TopWindow = w
 
 	w.SetMaster()
 
-
-
 	content := container.NewMax()
 	title := widget.NewLabel("SNATS")
+
 	intro := widget.NewLabel("Secure Communications using NATS\nVisit nats.io for additional info.")
 	intro.Wrapping = fyne.TextWrapWord
 	setTutorial := func(t panes.MyPane) {
 		if fyne.CurrentDevice().IsMobile() {
-			child := a.NewWindow(t.Title)
+			child := panes.MyAppDup.NewWindow(t.Title)
 			TopWindow = child
 			child.SetContent(t.View(TopWindow))
 			child.Show()
@@ -84,91 +68,40 @@ func main() {
 		split.Offset = 0.2
 		w.SetContent(split)
 	}
+
 	w.Resize(fyne.NewSize(640, 460))
 	w.ShowAndRun()
 }
 
-/*
- *	FUNCTION		: logLifecycle
- *	DESCRIPTION		:./
- *		Handle remove ca-nats.pem fron file system on exit
- *
- *	PARAMETERS		:
- *		        	:
- *
- *	RETURNS			:
- *
- */
 func logLifecycle(a fyne.App) {
 
 	a.Lifecycle().SetOnStopped(func() {
-		caerr := storage.Delete(panes.DataStore("ca-root.pem"))
-		if caerr == nil {
-			log.Println("DeleteCarootFS Deleting")
-		}
-		caerr1 := storage.Delete(panes.DataStore("client-cert.pem"))
-		if caerr1 == nil {
-			log.Println("DeleteCarootFS Deleting")
-		}
-		caerr2 := storage.Delete(panes.DataStore("client-key.pem"))
-		if caerr2 == nil {
-			log.Println("DeleteCarootFS Deleting")
-		}
+
+		//log.Println("DeleteCarootFS Deleting")
+
 	})
 
 }
 
-/*
- *	FUNCTION		: makeTray
- *	DESCRIPTION		:
- *		Create th// encryption nonce
-var nonce = iiuiouoie system tray interface
- *
- *	PARAMETERS		:
- *		        	:
- *
- *	RETURNS			:
- *
- */
 func makeTray(a fyne.App) {
 	if desk, ok := a.(desktop.App); ok {
-		h := fyne.NewMenuItem("Hello", func() {})
-		menu := fyne.NewMenu("Hello World", h)
+		h := fyne.NewMenuItem("Secure", func() {})
+		menu := fyne.NewMenu("Encryption", h)
 		h.Action = func() {
-			log.Println("System tray menu tapped")
-			h.Label = "Welcome"
+			//log.Println("System tray menu tapped")
+			h.Label = "Secure"
 			menu.Refresh()
 		}
 		desk.SetSystemTrayMenu(menu)
 	}
 }
 
-/*
- *	FUNCTION		: unsupportedApplication
- *	DESCRIPTION		:
- *		Check interface
- *
- *	PARAMETERS		:
- *		        	:
- *
- *	RETURNS			:
- *		bool if not valid
- */
+
 func unsupportedApplication(t panes.MyPane) bool {
 	return !t.SupportWeb && fyne.CurrentDevice().IsBrowser()
 }
 
-/*
- *	FUNCTION		: makeNav
- *	DESCRIPTION		:
- *		Create interface canvas
- *
- *	PARAMETERS		:
- *		        	:
- *
- *	RETURNS			:
- *		Applicatio canvas
- */
+
 func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.CanvasObject {
 	a := fyne.CurrentApp()
 
@@ -224,18 +157,6 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 
 	return container.NewBorder(nil, themes, nil, nil, tree)
 }
-
-/*
- *	FUNCTION		: shortcutFocused
- *	DESCRIPTION		:
- *		Handle shortcuts to clipboard
- *
- *	PARAMETERS		:
- *		        	:
- *
- *	RETURNS			:
- *
- */
 func shortcutFocused(s fyne.Shortcut, w fyne.Window) {
 	switch sh := s.(type) {
 	case *fyne.ShortcutCopy:
