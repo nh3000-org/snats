@@ -51,13 +51,13 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 		confighasherr, _ := storage.Exists(DataStore("config.hash"))
 		//log.Println("hash logon ", confighasherr, " at ", DataStore("config.hash"))
 		if confighasherr == false {
-			if MyHash("CREATE", Passwordhash) {
+			if MyHash("CREATE") {
 				log.Println("logon.go Error Creating Password Hash")
 				errors.SetText("Error Creating Password Hash")
 			}
 		}
 
-		if MyHash("LOAD", "NONE") {
+		if MyHash("LOAD") {
 			log.Println("logon.go Error Loading Password Hash")
 			errors.SetText("Error Loading Password Hash")
 		}
