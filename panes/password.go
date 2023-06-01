@@ -12,11 +12,6 @@ import (
 
 func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 
-	_, configfileerr := os.Stat("config.json")
-	if configfileerr != nil {
-		MyJson("CREATE")
-	}
-	MyJson("LOAD")
 	password := widget.NewPasswordEntry()
 	password.SetPlaceHolder("Enter Password For Encryption")
 	password.SetText(Password)
@@ -45,13 +40,13 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 		_, confighasherr := os.Stat("config.hash")
 		if confighasherr != nil {
 
-			if MyHash("CREATE", Passwordhash) {
+			if MyHash("CREATE") {
 				errors.SetText("Error Creating Password Hash")
 			}
 		}
 
 		Password = password.Text
-		if MyHash("LOAD", "NONE") {
+		if MyHash("LOAD") {
 			errors.SetText("Error Reading Password Hash")
 		}
 		// Comparing the password with the hash
@@ -62,7 +57,7 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 		}
 		if !iserrors {
 			MyJson("LOAD")
-			errors.SetText("Password Changed ")
+			errors.SetText("Password Accepted ")
 
 			password.Disable()
 			passwordc1.Enable()
@@ -85,7 +80,7 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 		}
 		if passwordc1.Text != passwordc2.Text != true {
 			iserrors = true
-			errors.SetText("Error Pasword 1 Dows Not Password 2")
+			errors.SetText("Error Pasword 1 Does Not Match Password 2")
 		}
 		if !iserrors {
 			pwh, err := bcrypt.GenerateFromPassword([]byte(Password), bcrypt.DefaultCost)
@@ -96,14 +91,14 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 			_, confighasherr := os.Stat("config.hash")
 			if confighasherr == nil {
 
-				if MyHash("CREATE", Passwordhash) {
+				if MyHash("CREATE") {
 					errors.SetText("Error Creating Password Hash")
 				}
-				MyJson("SAVE")
+
 			}
 		}
 		Password = passwordc1.Text
-		if MyHash("LOAD", "NONE") {
+		if MyHash("LOAD") {
 			errors.SetText("Error Reading Password Hash")
 			iserrors = true
 		}
