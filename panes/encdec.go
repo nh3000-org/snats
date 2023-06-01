@@ -8,7 +8,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func encdecScreen(_ fyne.Window) fyne.CanvasObject {
+func encdecScreen(win fyne.Window) fyne.CanvasObject {
 	errors := widget.NewLabel("...")
 
 	password := widget.NewEntry()
@@ -18,6 +18,7 @@ func encdecScreen(_ fyne.Window) fyne.CanvasObject {
 	myinputtext.SetPlaceHolder("Enter Value For Enc/Dec")
 	myinputtext.SetMinRowsVisible(6)
 
+	myinputtext.SetText(win.Clipboard().Content())
 	myoutputtext := widget.NewMultiLineEntry()
 	myoutputtext.SetPlaceHolder("Output Shows Up Here")
 	myoutputtext.SetMinRowsVisible(6)
@@ -39,8 +40,14 @@ func encdecScreen(_ fyne.Window) fyne.CanvasObject {
 			iserrors = true
 		}
 		if iserrors == false {
-			t, _ := Encrypt(myinputtext.Text, password.Text)
-			myoutputtext.SetText(string(t))
+			t, err := Encrypt(myinputtext.Text, password.Text)
+			if err != nil {
+				errors.SetText("Error Input Text " + err.Error())
+			} else {
+				myoutputtext.SetText(string(t))
+				win.Clipboard().SetContent(t)
+				errors.SetText("...")
+			}
 		}
 	})
 
@@ -56,8 +63,14 @@ func encdecScreen(_ fyne.Window) fyne.CanvasObject {
 			errors.SetText("Error Password Length is " + strconv.Itoa(len(password.Text)) + " shlould be length of 24")
 		}
 		if iserrors == false {
-			t, _ := Decrypt(myinputtext.Text, password.Text)
-			myoutputtext.SetText(string(t))
+			t, err := Decrypt(myinputtext.Text, password.Text)
+			if err != nil {
+				errors.SetText("Error Input Text " + err.Error())
+			} else {
+				myoutputtext.SetText(t)
+				win.Clipboard().SetContent(t)
+				errors.SetText("...")
+			}
 		}
 
 	})
