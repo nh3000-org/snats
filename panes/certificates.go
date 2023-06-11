@@ -8,49 +8,64 @@ import (
 
 func certificatesScreen(_ fyne.Window) fyne.CanvasObject {
 
-	pllabel := widget.NewLabel("Password Length")
-	pl := widget.NewRadioGroup([]string{"6", "8", "12"}, func(string) {})
-	pl.Horizontal = true
-	pl.SetSelected("6")
+	errors := widget.NewLabel("...")
+	if PasswordValid == true {
+		calabel := widget.NewLabel("CAROOT Certificate")
+		ca := widget.NewMultiLineEntry()
+		ca.SetText(Caroot)
 
-	mcletterlabel := widget.NewLabel("Password Must Contain Letter")
-	mcletter := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
-	mcletter.Horizontal = true
-	mcletter.SetSelected("False")
+		cclabel := widget.NewLabel("CLIENT Certificate")
+		cc := widget.NewMultiLineEntry()
+		cc.SetText(Clientcert)
 
-	mcnumberlabel := widget.NewLabel("Password Must Contain Number")
-	mcnumber := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
-	mcnumber.Horizontal = true
-	mcnumber.SetSelected("False")
+		cklabel := widget.NewLabel("CLIENT Key")
+		ck := widget.NewMultiLineEntry()
+		ck.SetText(Clientkey)
 
-	mcspeciallabel := widget.NewLabel("Password Must Contain Special")
-	mcspecial := widget.NewRadioGroup([]string{"True", "False"}, func(string) {})
-	mcspecial.Horizontal = true
-	mcspecial.SetSelected("False")
+		ssbutton := widget.NewButton("Save Settings", func() {
+			errors.SetText("...")
+			if PasswordValid {
+				var iserrors = editEntry("CERTIFICATE", ca.Text)
+				if iserrors {
+					errors.SetText("Error CAROOT is invalid ")
+				}
+				iserrors = editEntry("CERTIFICATE", cc.Text)
+				if iserrors {
+					errors.SetText("Error CLIENT CERTIFICATE is invalid ")
+				}
+				iserrors = editEntry("KEY", ck.Text)
+				if iserrors {
+					errors.SetText("Error CLIENT KEY is invalid ")
+				}
+				if !iserrors {
+					MyJson("SAVE")
+				}
+			}
+		})
 
-	PasswordMustContainNumber = editEntry("cvtbool", mcnumber.Selected)
-	PasswordMinimumSize = pl.Selected
-	PasswordMustContainLetter = editEntry("cvtbool", mcletter.Selected)
-	PasswordMustContainSpecial = editEntry("cvtbool", mcspecial.Selected)
+		return container.NewCenter(container.NewVBox(
+			widget.NewLabelWithStyle("New Horizons 3000 Secure Communications ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			calabel,
+			ca,
+			cclabel,
+			cc,
+			cklabel,
+			cklabel,
+			ck,
 
-	ssbutton := widget.NewButton("Save Settings", func() {
-		if PasswordValid {
-			MyJson("SAVE")
-		}
-	})
-
+			ssbutton,
+			errors,
+			container.NewHBox(
+				widget.NewHyperlink("newhorizons3000.org", parseURL("https://newhorizons3000.org/")),
+			),
+			widget.NewLabel(""),
+		))
+	}
+	errors.SetText("Logon First")
 	return container.NewCenter(container.NewVBox(
 		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
-		pllabel,
-		pl,
-		mcletterlabel,
-		mcletter,
-		mcnumberlabel,
-		mcnumber,
-		mcspeciallabel,
-		mcspecial,
-		ssbutton,
+		errors,
 		container.NewHBox(
 			widget.NewHyperlink("newhorizons3000.org", parseURL("https://newhorizons3000.org/")),
 		),
