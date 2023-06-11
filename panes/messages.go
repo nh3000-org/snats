@@ -1,6 +1,5 @@
 package panes
 
-
 import (
 	"log"
 	"strings"
@@ -35,11 +34,15 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			return container.NewHBox(widget.NewIcon(theme.CheckButtonCheckedIcon()), widget.NewLabel("Template Object"))
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias + " - " + NatsMessages[id].MSmessage)
+			var short = NatsMessages[id].MSmessage
+			if len(NatsMessages[id].MSmessage) > 12 {
+				short = NatsMessages[id].MSmessage[0:12]
+			}
+			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias + " - " + short)
 		},
 	)
 	List.OnSelected = func(id widget.ListItemID) {
-		var mytext = NatsMessages[id].MSmessage + "\n" + NatsMessages[id].MShostname + "\n" + NatsMessages[id].MSipadrs + "\n" + NatsMessages[id].MSnodeuuid
+		var mytext = NatsMessages[id].MSmessage + "\n.................." + NatsMessages[id].MShostname + NatsMessages[id].MSipadrs + NatsMessages[id].MSnodeuuid + NatsMessages[id].MSiduuid
 		label.SetText(mytext)
 		icon.SetResource(theme.DocumentIcon())
 	}
@@ -108,7 +111,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 				errors.SetText("PullSubscribe Fetch " + errfetch.Error())
 				log.Println("messages.go PullSubscribe Fetch ", errfetch)
 			}
-			log.Println("messages: ", len(msgs))
+			//log.Println("messages: ", len(msgs))
 			if len(msgs) > 0 {
 				for i := 0; i < len(msgs); i++ {
 					msgs[i].Nak()
@@ -153,15 +156,17 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 func HandleMessage(m *nats.Msg) {
 	ms := MessageStore{}
 	var inmap = true // unique message id
-	ejson, _ := Decrypt(string(m.Data), MySecret)
+	ejson, _ := Decrypt(string(m.Data), Queuepassword)
 	err := json.Unmarshal([]byte(ejson), &ms)
 	if err != nil {
-		log.Println("HandleMessage Unmarshall: ", err)
+		ms.MSalias = "PRIVATE"
 	}
 
 	inmap = NodeMap("MI" + ms.MSiduuid)
 	if inmap == false {
-		NatsMessages = append(NatsMessages, ms)
+		if ms.MSalias != "PRIVATE" {
+			NatsMessages = append(NatsMessages, ms)
+		}
 	}
 
 }
