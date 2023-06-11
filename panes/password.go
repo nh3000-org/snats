@@ -51,7 +51,7 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 		}
 		// Comparing the password with the hash
 		if err := bcrypt.CompareHashAndPassword([]byte(Passwordhash), []byte(Password)); err != nil {
-			// TODO: Properly handle error
+
 			iserrors = true
 			errors.SetText(err.Error())
 		}
@@ -67,44 +67,48 @@ func passwordScreen(_ fyne.Window) fyne.CanvasObject {
 	})
 
 	cpbutton := widget.NewButton("Change Password", func() {
-		var iserrors bool
-		iserrors = false
+		var iserrors = false
 
-		if editEntry("STRING", passwordc1.Text) != true {
+		if editEntry("STRING", passwordc1.Text) == true {
 			iserrors = true
 			errors.SetText("Error Pasword 1 Invalid")
 		}
-		if editEntry("STRING", passwordc2.Text) != true {
+
+		log.Println("password.go iserrors b4 pass ", iserrors)
+		if editEntry("PASSWORD", passwordc1.Text) {
 			iserrors = true
-			errors.SetText("Error Pasword 2 Invalid")
+			errors.SetText("Error Pasword Does Not Meet Requirements")
 		}
-		if passwordc1.Text != passwordc2.Text != true {
+		if passwordc1.Text != passwordc2.Text {
 			iserrors = true
 			errors.SetText("Error Pasword 1 Does Not Match Password 2")
 		}
+		log.Println("password.go iserrors", iserrors)
 		if !iserrors {
-			pwh, err := bcrypt.GenerateFromPassword([]byte(Password), bcrypt.DefaultCost)
+			pwh, err := bcrypt.GenerateFromPassword([]byte(passwordc1.Text), bcrypt.DefaultCost)
 			Passwordhash = string(pwh)
+			log.Println("password hash", Passwordhash)
 			if err != nil {
 				log.Fatal(err)
 			}
-			_, confighasherr := os.Stat("config.hash")
-			if confighasherr == nil {
-
-				if MyHash("CREATE") {
-					errors.SetText("Error Creating Password Hash")
-				}
-
+			log.Println("change save ", Passwordhash, " ", DataStore("config.hash"))
+			if MyHash("SAVE") {
+				errors.SetText("Error Saving Password Hash")
+				log.Println("password.go Error Saving Password Hash ")
 			}
+
 		}
 		Password = passwordc1.Text
 		if MyHash("LOAD") {
 			errors.SetText("Error Reading Password Hash")
+			log.Println("password.go Error Reading Password Hash ")
 			iserrors = true
 		}
 		// Comparing the password with the hash
-		if err := bcrypt.CompareHashAndPassword([]byte(Passwordhash), []byte(Password)); err != nil {
-			errors.SetText("Error Invalid Password ")
+		err := bcrypt.CompareHashAndPassword([]byte(Passwordhash), []byte(passwordc1.Text))
+		if err != nil {
+			log.Println("Error Invalid Password ", err)
+			errors.SetText("password.go Error Invalid Password ")
 			iserrors = true
 		}
 		if !iserrors {
