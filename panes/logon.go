@@ -2,6 +2,7 @@ package panes
 
 import (
 	"log"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -76,7 +77,7 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 			MyJson("LOAD")
 			alias.SetText(Alias)
 			server.SetText(Server)
-			log.Println("logon.go Server " + Server)
+			//log.Println("logon.go Server " + Server)
 			queue.SetText(Queue)
 			queuepassword.SetText(Queuepassword)
 			password.Disable()
@@ -93,6 +94,15 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 		if iserrors == true {
 			log.Println("logon.go Error URL Incorrect Format ")
 			errors.SetText("Error Invalid Password")
+		}
+		iserrors = editEntry("STRING", queuepassword.Text)
+		if iserrors == true {
+			errors.SetText("Error Invalid Queue Password")
+			iserrors = true
+		}
+		if len(queuepassword.Text) != 24 {
+			iserrors = true
+			errors.SetText("Error Queue Password Length is " + strconv.Itoa(len(queuepassword.Text)) + " shlould be length of 24")
 		}
 
 		if !iserrors && PasswordValid {
