@@ -22,7 +22,7 @@ func main() {
 	panes.MyAppDup.SetIcon(theme.FyneLogo())
 	makeTray(panes.MyAppDup)
 	logLifecycle(panes.MyAppDup)
-	w := panes.MyAppDup.NewWindow("Secure NATS BETA")
+	w := panes.MyAppDup.NewWindow("Secure NATS BETA.2")
 	TopWindow = w
 
 	w.SetMaster()
@@ -69,7 +69,6 @@ func logLifecycle(a fyne.App) {
 
 	a.Lifecycle().SetOnStopped(func() {
 
-
 	})
 
 }
@@ -89,7 +88,6 @@ func makeTray(a fyne.App) {
 func unsupportedApplication(t panes.MyPane) bool {
 	return !t.SupportWeb && fyne.CurrentDevice().IsBrowser()
 }
-
 
 func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.CanvasObject {
 	a := fyne.CurrentApp()
@@ -113,57 +111,7 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 				return
 			}
 			obj.(*widget.Label).SetText(t.Title)
-			package panes
-2
-​
-3
-import (
-4
-        "strconv"
-5
-​
-6
-        "fyne.io/fyne/v2"
-7
-        "fyne.io/fyne/v2/container"
-8
-        "fyne.io/fyne/v2/widget"
-9
-)
-10
-​
-11
-func encdecScreen(win fyne.Window) fyne.CanvasObject {
-12
-        errors := widget.NewLabel("...")
-13
-​
-14
-        password := widget.NewEntry()
-15
-        password.SetPlaceHolder("Enter Password For Encryption")
-16
-​
-17
-        myinputtext := widget.NewMultiLineEntry()
-18
-        myinputtext.SetPlaceHolder("Enter Value For Enc/Dec")
-19
-        myinputtext.SetMinRowsVisible(6)
-20
-​
-21
-        myinputtext.SetText(win.Clipboard().Content())
-22
-        myoutputtext := widget.NewMultiLineEntry()
-23
-        myoutputtext.SetPlaceHolder("Output Shows Up Here")
-24
-        myoutputtext.SetMinRowsVisible(6)
-25
-        var iserrors = false
-26
-        errors.SetText("...")if unsupportedApplication(t) {
+			if unsupportedApplication(t) {
 				obj.(*widget.Label).TextStyle = fyne.TextStyle{Italic: true}
 			} else {
 				obj.(*widget.Label).TextStyle = fyne.TextStyle{}
