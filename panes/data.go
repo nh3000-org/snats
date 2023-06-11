@@ -59,10 +59,10 @@ var Queuepassword string // server message queue password
 var Password string     // encrypt file password
 var Passwordhash string // hash value of password
 
-var PasswordMinimumSize string      // set minimum password size
-var PasswordMustContainNumber bool  // password must contain number
-var PasswordMustContainLetter bool  // password must contain letter
-var PasswordMustContainSpecial bool // password must contain special character
+var PasswordMinimumSize string        // set minimum password size
+var PasswordMustContainNumber string  // password must contain number
+var PasswordMustContainLetter string  // password must contain letter
+var PasswordMustContainSpecial string // password must contain special character
 
 // Server tab
 var Server string // server url
@@ -139,7 +139,7 @@ func MyJson(action string) {
 		Queue = MyApp.Preferences().StringWithFallback("Queue", xQueue)
 		xAlias, _ := Encrypt("MyAlias", MySecret)
 		Alias = MyApp.Preferences().StringWithFallback("Alias", xAlias)
-		xQueuepassword, _ := Encrypt("123456", MySecret)
+		xQueuepassword, _ := Encrypt("123456789012345678901234", MySecret)
 		Queuepassword = MyApp.Preferences().StringWithFallback("Queuepasword", xQueuepassword)
 
 		var xCaroot = strings.ReplaceAll("-----BEGIN CERTIFICATE-----\nMIICFDCCAbugAwIBAgIUDkHxHO1DwrlkTzUimG5PoiswB6swCgYIKoZIzj0EAwIw\nZjELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UE\nChMDU0VDMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMz\nMDAwLm9yZzAgFw0yMzAzMzExNzI5MDBaGA8yMDUzMDMyMzE3MjkwMFowZjELMAkG\nA1UEBhMCVVMxCzAJBgNVBAgTAkZMMQswCQYDVQQHEwJDVjEMMAoGA1UEChMDU0VD\nMQwwCgYDVQQLEwNuaDExITAfBgNVBAMTGG5hdHMubmV3aG9yaXpvbnMzMDAwLm9y\nZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABHXwMUfMXiJix3tuzFymcA+3RkeY\nZE7urUzVgaqkv/Oef3jhqhtf1XzK/qVYGxWWmpvADGB252PG1Mp7Z5wmzqyjRTBD\nMA4GA1UdDwEB/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQm\nFA5caanuqxGFOf9DtZkVYv5dCzAKBggqhkjOPQQDAgNHADBEAiB3BheNP4XdBZ27\nxVBQ7ztMJqK7wDi1V3LuMy5jmXr7rQIgHCse0oaiAwcl4VwF00aSshlV+T/da0Tx\n1ANkaM+rie4=\n-----END CERTIFICATE-----\n", "\n", "<>")
@@ -154,9 +154,9 @@ func MyJson(action string) {
 		yclientkey, _ := Encrypt(xClientkey, MySecret)
 		Clientkey = MyApp.Preferences().StringWithFallback("Clientkey", yclientkey)
 		PasswordMinimumSize = MyApp.Preferences().StringWithFallback("PasswordMinimumSize", "6")
-		PasswordMustContainNumber = MyApp.Preferences().BoolWithFallback("PasswordMustContainNumber", true)
-		PasswordMustContainLetter = MyApp.Preferences().BoolWithFallback("PasswordMustContainLetter", true)
-		PasswordMustContainSpecial = MyApp.Preferences().BoolWithFallback("PasswordMustContainSpecial", true)
+		PasswordMustContainNumber = MyApp.Preferences().StringWithFallback("PasswordMustContainNumber", "True")
+		PasswordMustContainLetter = MyApp.Preferences().StringWithFallback("PasswordMustContainLetter", "True")
+		PasswordMustContainSpecial = MyApp.Preferences().StringWithFallback("PasswordMustContainSpecial", "True")
 
 		// prepare for operations
 		yServer, _ := Decrypt(Server, MySecret)
@@ -190,11 +190,10 @@ func MyJson(action string) {
 		MyApp.Preferences().SetString("Alias", xAlias)
 		xQueuepassword, _ := Encrypt(Queuepassword, MySecret)
 		MyApp.Preferences().SetString("Queuepassword", xQueuepassword)
-		xPasswordMinimumSize, _ := Encrypt(PasswordMinimumSize, MySecret)
-		MyApp.Preferences().SetString("PasswordMinimumSize", xPasswordMinimumSize)
-		MyApp.Preferences().SetBool("PasswordMustContainNumber", PasswordMustContainNumber)
-		MyApp.Preferences().SetBool("PasswordMustContainLetter", PasswordMustContainLetter)
-		MyApp.Preferences().SetBool("PasswordMustContainSpecial", PasswordMustContainSpecial)
+		MyApp.Preferences().SetString("PasswordMinimumSize", PasswordMinimumSize)
+		MyApp.Preferences().SetString("PasswordMustContainNumber", PasswordMustContainNumber)
+		MyApp.Preferences().SetString("PasswordMustContainLetter", PasswordMustContainLetter)
+		MyApp.Preferences().SetString("PasswordMustContainSpecial", PasswordMustContainSpecial)
 	}
 
 }
@@ -413,7 +412,7 @@ func FormatMessage(m string) []byte {
 	if jsonerr != nil {
 		log.Println("FormatMessage ", jsonerr)
 	}
-	ejson, _ := Encrypt(string(jsonmsg), MySecret)
+	ejson, _ := Encrypt(string(jsonmsg), Queuepassword)
 	return []byte(ejson)
 
 }
@@ -486,45 +485,39 @@ func editEntry(action string, value string) bool {
 	if action == "PASSWORD" {
 		var iserrors = false
 		vlen, _ := strconv.Atoi(PasswordMinimumSize)
-		if len(value) <= vlen {
+		if (len(value) <= vlen) == false {
 			iserrors = true
-			log.Println("editentry length ", iserrors)
 		}
-		log.Println("password.go letter b4 ", iserrors)
-		if PasswordMustContainLetter && !iserrors {
-			iserrors = true
+
+		if PasswordMustContainLetter == "True" && !iserrors {
+
 			for _, r := range value {
 				if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
-					iserrors = false
-					log.Println("editentry letter ", iserrors)
+					iserrors = true
 					break
 				}
 			}
 		}
-		log.Println("password.go number b4 ", iserrors)
-		if PasswordMustContainNumber && !iserrors {
+
+		if PasswordMustContainNumber == "True" && !iserrors {
 			iserrors = true
 			for _, r := range value {
 				if unicode.IsNumber(r) {
 					iserrors = false
-					log.Println("password.go number", iserrors)
 					break
 				}
 			}
 		}
-		log.Println("password.go special b4 ", iserrors)
-		if PasswordMustContainSpecial && !iserrors {
+		if PasswordMustContainSpecial == "True" && !iserrors {
 			iserrors = true
 			var schars = []string{"|", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "-", "+", "=", "{", "}", "]", "[", "|", ":", ";", ",", ".", "#", "'", "\"", "\\", "%", "?", "\n", "<", "Ø", "ð", ">", "ï", "û"}
 			for _, sc := range schars {
 				if strings.Contains(value, sc) {
 					iserrors = false
-					log.Println("password.go special ", iserrors)
 					break
 				}
 			}
 		}
-		log.Println("password.go special a4 ", iserrors)
 		return iserrors
 	}
 	if action == "CERTIFICATE" {
