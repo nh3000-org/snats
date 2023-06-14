@@ -21,7 +21,7 @@ jobs:
       with:
         go-version: 1.19
     - name: Install dependencies
-      run: go tidy 
+      run: go mod tidy 
     - name: Build
       run: go build -v ./...
 
