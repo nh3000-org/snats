@@ -21,7 +21,7 @@ jobs:
       with:
         go-version: 1.19
     - name: Install dependencies
-      run: github.com/go-gl/gl/v3.3-core/gl
+      run: go get github.com/go-gl/gl/v3.3-core/gl
            go mod tidy 
 
     - name: Build
