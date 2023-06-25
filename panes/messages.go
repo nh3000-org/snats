@@ -2,6 +2,8 @@ package panes
 
 import (
 	"log"
+	"strconv"
+
 	"strings"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/goccy/go-json"
+
 	"github.com/nats-io/nats.go"
 )
 
@@ -25,7 +28,10 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 	icon := widget.NewIcon(nil)
 	label := widget.NewLabel("Select An Item From The List")
-	hbox := container.NewHBox(icon, label)
+	//hbox := container.NewHBox(icon, label)
+	hbox := container.NewVScroll(label)
+
+	hbox.SetMinSize(fyne.NewSize(320, 240))
 	List := widget.NewList(
 		func() int {
 			return len(NatsMessages)
@@ -36,13 +42,15 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		func(id widget.ListItemID, item fyne.CanvasObject) {
 			var short = NatsMessages[id].MSmessage
 			if len(NatsMessages[id].MSmessage) > 12 {
-				short = NatsMessages[id].MSmessage[0:12]
+				var short1 = strings.ReplaceAll(NatsMessages[id].MSmessage, "\n", ".")
+				short = short1[0:12]
 			}
+
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(NatsMessages[id].MSalias + " - " + short)
 		},
 	)
 	List.OnSelected = func(id widget.ListItemID) {
-		var mytext = NatsMessages[id].MSmessage + "\n.................." + NatsMessages[id].MShostname + NatsMessages[id].MSipadrs + NatsMessages[id].MSnodeuuid + NatsMessages[id].MSiduuid
+		var mytext = NatsMessages[id].MSmessage + "\n.................." + NatsMessages[id].MShostname + NatsMessages[id].MSipadrs + NatsMessages[id].MSnodeuuid + NatsMessages[id].MSiduuid + NatsMessages[id].MSdate
 		label.SetText(mytext)
 		icon.SetResource(theme.DocumentIcon())
 	}
@@ -77,6 +85,8 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		recbutton := widget.NewButton("Recieve Messages", func() {
 			//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
 			NatsMessages = nil
+			label.SetText("Select An Item From The List")
+
 			nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 			if err != nil {
 				errors.SetText("Receive Messaged " + err.Error())
@@ -103,15 +113,15 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			}
 			sub, errsub := js.PullSubscribe("", "", nats.BindStream(Queue))
 			if errsub != nil {
-				log.Println("messages.go PullSubscribe Sub ", errsub)
+				//log.Println("messages.go PullSubscribe Sub ", errsub)
 				errors.SetText("PullSubscribe Sub " + errsub.Error())
 			}
 			msgs, errfetch := sub.Fetch(100)
 			if errfetch != nil {
 				errors.SetText("PullSubscribe Fetch " + errfetch.Error())
-				log.Println("messages.go PullSubscribe Fetch ", errfetch)
+				//log.Println("messages.go PullSubscribe Fetch ", errfetch)
 			}
-			//log.Println("messages: ", len(msgs))
+			errors.SetText("Recieved " + strconv.Itoa(len(msgs)) + " messages")
 			if len(msgs) > 0 {
 				for i := 0; i < len(msgs); i++ {
 					msgs[i].Nak()
@@ -120,6 +130,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 
 			}
 			List.Refresh()
+
 		})
 
 		if !LoggedOn {
