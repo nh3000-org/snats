@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
@@ -9,20 +11,24 @@ import (
 	"github.com/nh3000-org/snats/panes"
 )
 
-const preferenceCurrentApplication = "currentApplication"
+const preferenceCurrentApplication = "logon"
 
 var TopWindow fyne.Window
 
-var ErrorMessage = "..."
-
 func main() {
-	//MyApp := app.NewWithID("org.nh3000.snats")
+
 	panes.MyJson("LOAD")
+	log.Println("load ", panes.PreferedLanguage)
+	panes.Init()
 	panes.MyAppDup = panes.GetMyApp()
-	panes.MyAppDup.SetIcon(theme.FyneLogo())
+	//panes.MyAppDup.SetIcon(theme.FyneLogo())
+	MyLogo, _ := fyne.LoadResourceFromPath("logo.png")
+	panes.MyAppDup.SetIcon(MyLogo)
 	makeTray(panes.MyAppDup)
 	logLifecycle(panes.MyAppDup)
+
 	w := panes.MyAppDup.NewWindow("Secure NATS BETA.2")
+
 	TopWindow = w
 
 	w.SetMaster()
@@ -91,7 +97,7 @@ func unsupportedApplication(t panes.MyPane) bool {
 
 func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.CanvasObject {
 	a := fyne.CurrentApp()
-
+	a.Settings().SetTheme(theme.DarkTheme())
 	tree := &widget.Tree{
 		ChildUIDs: func(uid string) []string {
 			return panes.MyPanesIndex[uid]
