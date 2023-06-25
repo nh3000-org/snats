@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"fyne.io/fyne/v2"
@@ -56,8 +57,10 @@ var ErrorMessage = "None"
 var Queue string         // server message queue
 var Queuepassword string // server message queue password
 
-var Password string     // encrypt file password
-var Passwordhash string // hash value of password
+var Msgmaxage string        // msg age in hours to keep
+var PreferedLanguage string // language string
+var Password string         // encrypt file password
+var Passwordhash string     // hash value of password
 
 var PasswordMinimumSize string        // set minimum password size
 var PasswordMustContainNumber string  // password must contain number
@@ -84,23 +87,51 @@ type MessageStore struct {
 	MSipadrs   string
 	MSmessage  string
 	MSnodeuuid string
+	MSdate     string
 }
 
-var (
+var MyLangs = map[string]string{
+	"eng-ps-title": "Pass Reset",
+	"esp-ps-title": "Pasar Restablecer",
+	"eng-ss-title": "Settings",
+	"esp-ss-title": "Ajustes",
+	"eng-cs-title": "Certificates",
+	"esp-cs-title": "Certificados",
+	"eng-ls-title": "Logon",
+	"esp-ls-title": "Iniciar sesión",
+	"eng-ms-title": "Messages",
+	"esp-ms-title": "Mensajes",
+	"eng-es-title": "Enc/Dec",
+	"esp-es-title": "Codificar/Descodificar",
+}
+var MyPanes = map[string]MyPane{}
+var MyPanesIndex = map[string][]string{}
+
+func GetLangs(mystring string) string {
+
+	value, err := MyLangs[PreferedLanguage+"-"+mystring]
+	log.Println("GetLangs ", PreferedLanguage+"-"+mystring)
+	if err == false {
+		return "err"
+	}
+	return value
+}
+
+func Init() {
 	MyPanes = map[string]MyPane{
-		"password":     {"Pass Reset", "", passwordScreen, true},
-		"settings":     {"Settings", "", settingsScreen, true},
-		"certificates": {"Certificates", "", certificatesScreen, true},
-		"logon":        {"Logon", "", logonScreen, true},
-		"messages":     {"Messages", "", messagesScreen, true},
-		"encdec":       {"Enc/Dec", "", encdecScreen, true},
+		"password":     {GetLangs("ps-title"), "", passwordScreen, true},
+		"settings":     {GetLangs("ss-title"), "", settingsScreen, true},
+		"certificates": {GetLangs("cs-title"), "", certificatesScreen, true},
+		"logon":        {GetLangs("ls-title"), "", logonScreen, true},
+		"messages":     {GetLangs("ms-title"), "", messagesScreen, true},
+		"encdec":       {GetLangs("es-title"), "", encdecScreen, true},
 	}
 
 	// PanesIndex  defines how our panes should be laid out in the index tree
 	MyPanesIndex = map[string][]string{
 		"": {"password", "logon", "settings", "certificates", "messages", "encdec"},
 	}
-)
+}
 
 func DataStore(myfile string) fyne.URI {
 	DataLocation, dlerr := storage.Child(fyne.CurrentApp().Storage().RootURI(), myfile)
@@ -133,6 +164,9 @@ func MyJson(action string) {
 	MyApp = GetMyApp()
 	if action == "LOAD" {
 		// prepare fallback or just load
+
+		PreferedLanguage = MyApp.Preferences().StringWithFallback("PreferedLanguage", "eng")
+		log.Println("Prefered lang ", PreferedLanguage)
 		xServer, _ := Encrypt("nats://nats.newhorizons3000.org:4222", MySecret)
 		Server = MyApp.Preferences().StringWithFallback("Server", xServer)
 		xQueue, _ := Encrypt("MESSAGES", MySecret)
@@ -153,6 +187,11 @@ func MyJson(action string) {
 		var xClientkey = strings.ReplaceAll("-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAxbbVR0Nd9SWMGswEDJtFwEL0b0404zmN2notfvppkPjUPZqz\nhZOh5WRaCqrMuvhz17AfcUG1pWL1DrqgYG/cRUGaC/I4irJCy616CMVAJSAU5cn+\n+q+ElfmacSWKBs1zU3nWlNBDE8gIlEOpwWxTF4noTeavFc8bUxEpO0ILhnQFGF2L\nApmAb0LQV6BWDuQh8oT6rjmYez8UQK7mMqRFlRQQPtvfqcFXmkR86X3f4Ci2OI9q\nWiJxZ+0YnWFE6kR/ewY3UUmaTiR+nw+2yOC9PaZxbSCOaQAEUl9Q57UtJ1iFoWGC\nPbrHvR4vwdg0UC3A0stRuNLdc+HHco18WxRDUwIDAQABAoIBACe0XMZP4Al//c/P\n0qxZbjt69q13jiVnhHYwfPx3+0UywySP8adMi4GOkop73Ftb05+n7diHspvA8KeB\nkP1s2VZLI01s2i/4NnPCpbQnMIeEFs5Cr2LWZpDbrEk2ma5eCd/kotQFssLBM//a\nSrfeMh2TA0TJo7WEft9Cnf4ZeEkKnycplfvwTyv286iFZCYo2dv66BfTej6kkVCo\nAi+ZVCe2zSqRYyr0u4/j/kE3b3eSkCnY2IVcqlP7epuEGVOZyxeFLwM5ljbWL816\npA6WIJgQo2EQ1N7L531neg5WjXQ/UwTQoXP1jvuuVtKtOBFqm1IshEyFk3WpsfpD\nr16OTdECgYEA6FB6NYxYtnWPaIYAOqP7GtMKoJujH8MtZy6J33LkxI7nPkMkn8Mv\nva32tvjU4Bu1FVNp9k5guC+b+8ixXK0URj25IOhDs6K57tck22W9WiTZlmnkCO01\nJOavrelWbvYt5xNWIdnPualoPfGB0iJKXsKY/bpH4eVfhWwpNPI5sMkCgYEA2d9G\nEPuWN6gUjZ+JfdS+0WHK1yGD7thXs7MPUlhGqDzBryh2dkywyo8U8+tMLuDok1RZ\njnT3PYkLQEpzoV0qBkpFFShL6ubaGmDz1UZsozl0YcIg4diZeuPHnIAeXOFrhgYf\n825163LmT3jYHCROFEMLtTYyIQP0EznE+qFT3TsCgYEApgtvbfqkJbWdDL5KR5+R\nCLky7VyQmVEtkIRI8zbxoDPrwCrJcI9X/iDrKBhuPshPA7EdGXkn1D3jJXFqo6zp\nwtK3EXgxe6Ghd766jz4Guvl/s+x3mpHA3GEtzAXtS14VrQW7GHLP8AnPggauHX14\n3oYER8XvPtxtC7YlNbyz01ECgYAe2b7SKM3ck7BVXYHaj4V1oKNYUyaba4b/qxtA\nTb+zkubaJqCfn7xo8lnFMExZVv+X3RnRUj6wN/ef4ur8rnSE739Yv5wAZy/7DD96\ns74uXrRcI2EEmechv59ESeACxuiy0as0jS+lZ1+1YSc41Os5c0T1I/d1NVoaXtPF\nqZJ2gQKBgBp/XavdULBPzC7B8tblySzmL01qJZV7MSSVo2/1vJ7gPM0nQPZdTDog\nTfA5QKSX9vFTGC9CZHSJ+fabYDDd6+3UNYUKINfr+kwu9C2cysbiPaM3H27WR5mW\n5LhStAfwuRRYBDsG2ndjraxcBrrPdtkbS0dpeQUDJxvkMIuLHnhQ\n-----END RSA PRIVATE KEY-----\n", "\n", "<>")
 		yclientkey, _ := Encrypt(xClientkey, MySecret)
 		Clientkey = MyApp.Preferences().StringWithFallback("Clientkey", yclientkey)
+
+		var ymsgmaxage = []string{"8h", "16h", "24h", "48h", "161h", "8372h"}
+		xmsgmaxage, _ := Encrypt(strings.Join(ymsgmaxage, ","), MySecret)
+		Msgmaxage = MyApp.Preferences().StringWithFallback("Msgmaxage", xmsgmaxage)
+
 		PasswordMinimumSize = MyApp.Preferences().StringWithFallback("PasswordMinimumSize", "6")
 		PasswordMustContainNumber = MyApp.Preferences().StringWithFallback("PasswordMustContainNumber", "True")
 		PasswordMustContainLetter = MyApp.Preferences().StringWithFallback("PasswordMustContainLetter", "True")
@@ -161,6 +200,8 @@ func MyJson(action string) {
 		// prepare for operations
 		yServer, _ := Decrypt(Server, MySecret)
 		Server = yServer
+		yMsgmaxage, _ := Decrypt(Msgmaxage, MySecret)
+		Msgmaxage = yMsgmaxage
 		yQueue, _ := Decrypt(Queue, MySecret)
 		Queue = yQueue
 		yAlias, _ := Decrypt(Alias, MySecret)
@@ -182,12 +223,16 @@ func MyJson(action string) {
 		xClientkey, _ := Encrypt(Clientkey, MySecret)
 		MyApp.Preferences().SetString("Clientkey", xClientkey)
 
+		xMsgmaxage, _ := Encrypt(Msgmaxage, MySecret)
+		MyApp.Preferences().SetString("Msgmaxage", xMsgmaxage)
+
 		xServer, _ := Encrypt(Server, MySecret)
 		MyApp.Preferences().SetString("Server", xServer)
 		xQueue, _ := Encrypt(Queue, MySecret)
 		MyApp.Preferences().SetString("Queue", xQueue)
 		xAlias, _ := Encrypt(Alias, MySecret)
 		MyApp.Preferences().SetString("Alias", xAlias)
+		MyApp.Preferences().SetString("PreferedLanguage", PreferedLanguage)
 		xQueuepassword, _ := Encrypt(Queuepassword, MySecret)
 		MyApp.Preferences().SetString("Queuepassword", xQueuepassword)
 		MyApp.Preferences().SetString("PasswordMinimumSize", PasswordMinimumSize)
@@ -320,7 +365,8 @@ func MyHash(action string) bool {
 
 func NATSErase() {
 	log.Println("Erasing  ")
-
+	//msgmaxage, _ := time.ParseDuration("148h")
+	msgmaxage, _ := time.ParseDuration(Msgmaxage)
 	nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 	if err != nil {
 		log.Println("NatsErase Connection ", err.Error())
@@ -341,6 +387,7 @@ func NATSErase() {
 		Name:     Queue,
 		Subjects: []string{strings.ToLower(Queue) + ".>"},
 		Storage:  nats.FileStorage,
+		MaxAge:   msgmaxage,
 	})
 
 	if err1 != nil {
@@ -405,7 +452,8 @@ func FormatMessage(m string) []byte {
 	EncMessage.MSnodeuuid = "\nNode Id - " + NodeUUID[0:8]
 	iduuid := uuid.New().String()
 	EncMessage.MSiduuid = "\nMessage Id - " + iduuid[0:8]
-
+	EncMessage.MSdate = "\nOn -" + time.Now().Format(time.UnixDate)
+	//EncMessage.MSdate = "\nOn -"
 	EncMessage.MSmessage = m
 	//EncMessage += m
 	jsonmsg, jsonerr := json.Marshal(EncMessage)
