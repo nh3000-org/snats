@@ -10,32 +10,33 @@ func certificatesScreen(_ fyne.Window) fyne.CanvasObject {
 
 	errors := widget.NewLabel("...")
 	if PasswordValid == true {
-		calabel := widget.NewLabel("CAROOT Certificate")
+		calabel := widget.NewLabel(GetLangs("cs-ca"))
 		ca := widget.NewMultiLineEntry()
+		ca.Resize(fyne.NewSize(320, 240))
 		ca.SetText(Caroot)
 
-		cclabel := widget.NewLabel("CLIENT Certificate")
+		cclabel := widget.NewLabel(GetLangs("cs-cc"))
 		cc := widget.NewMultiLineEntry()
 		cc.SetText(Clientcert)
 
-		cklabel := widget.NewLabel("CLIENT Key")
+		cklabel := widget.NewLabel(GetLangs("cs-ck"))
 		ck := widget.NewMultiLineEntry()
 		ck.SetText(Clientkey)
 
-		ssbutton := widget.NewButton("Save Settings", func() {
+		ssbutton := widget.NewButton(GetLangs("cs-ss"), func() {
 			errors.SetText("...")
 			if PasswordValid {
 				var iserrors = editEntry("CERTIFICATE", ca.Text)
 				if iserrors {
-					errors.SetText("Error CAROOT is invalid ")
+					errors.SetText(GetLangs("cs-err1"))
 				}
 				iserrors = editEntry("CERTIFICATE", cc.Text)
 				if iserrors {
-					errors.SetText("Error CLIENT CERTIFICATE is invalid ")
+					errors.SetText(GetLangs("cs-err2"))
 				}
 				iserrors = editEntry("KEY", ck.Text)
 				if iserrors {
-					errors.SetText("Error CLIENT KEY is invalid ")
+					errors.SetText(GetLangs("cs-err3"))
 				}
 				if !iserrors {
 					MyJson("SAVE")
@@ -44,7 +45,7 @@ func certificatesScreen(_ fyne.Window) fyne.CanvasObject {
 		})
 
 		return container.NewCenter(container.NewVBox(
-			widget.NewLabelWithStyle("New Horizons 3000 Secure Communications ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle(GetLangs("cs-heading"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			calabel,
 			ca,
 			cclabel,
@@ -58,12 +59,12 @@ func certificatesScreen(_ fyne.Window) fyne.CanvasObject {
 			container.NewHBox(
 				widget.NewHyperlink("newhorizons3000.org", parseURL("https://newhorizons3000.org/")),
 			),
-			widget.NewLabel(""),
+			widget.NewLabel("_                                                                                             _"),
 		))
 	}
 	errors.SetText("Logon First")
 	return container.NewCenter(container.NewVBox(
-		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications ", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(GetLangs("cs-heading"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 
 		errors,
 		container.NewHBox(
