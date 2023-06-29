@@ -3,12 +3,14 @@ package panes
 import (
 	"log"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,12 +19,12 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 
 	MyJson("LOAD")
 
-	password := widget.NewEntry()
-	password.SetPlaceHolder("Enter Password For Encryption")
+	password := widget.NewPasswordEntry()
+	password.SetPlaceHolder(GetLangs("ls-password"))
 	password.SetText(Password)
 
 	alias := widget.NewEntry()
-	alias.SetPlaceHolder("Enter User Alias")
+	alias.SetPlaceHolder(GetLangs("ls-alias"))
 	alias.SetText(Alias)
 	alias.Disable()
 
@@ -31,14 +33,14 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 	server.Disable()
 
 	queue := widget.NewEntry()
-	queue.SetPlaceHolder("Message Queue for Pub/Sub")
+	queue.SetPlaceHolder(GetLangs("ls-queue"))
 	queue.Disable()
 
 	queuepassword := widget.NewEntry()
-	queuepassword.SetPlaceHolder("Message Queue Password")
+	queuepassword.SetPlaceHolder(GetLangs("ls-queuepass"))
 	queuepassword.Disable()
 
-	tpbutton := widget.NewButton("Try Password", func() {
+	tpbutton := widget.NewButton(GetLangs("ls-trypass"), func() {
 		errors.SetText("...")
 		var iserrors = false
 		Password = password.Text
@@ -46,29 +48,29 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 		Passwordhash = string(pwh)
 		if err != nil {
 			iserrors = true
-			log.Println("logon.go Error Creating Password Hash ")
-			errors.SetText(err.Error())
+			log.Println(GetLangs("ls-err1"))
+			errors.SetText(GetLangs("ls-err1"))
 		}
 		confighasherr, _ := storage.Exists(DataStore("config.hash"))
 		//log.Println("hash logon ", confighasherr, " at ", DataStore("config.hash"))
 		if confighasherr == false {
 			if MyHash("CREATE") {
-				log.Println("logon.go Error Creating Password Hash")
-				errors.SetText("Error Creating Password Hash")
+				log.Println(GetLangs("ls-err1"))
+				errors.SetText(GetLangs("ls-err1"))
 			}
 		}
 
 		if MyHash("LOAD") {
-			log.Println("logon.go Error Loading Password Hash")
-			errors.SetText("Error Loading Password Hash")
+			log.Println(GetLangs("ls-err2"))
+			errors.SetText(GetLangs("ls-err2"))
 		}
 		// Comparing the password with the hash
 		errpw := bcrypt.CompareHashAndPassword([]byte(Passwordhash), []byte(Password))
 
 		if errpw != nil {
 			iserrors = true
-			log.Println("logon.go Error Invalid Password")
-			errors.SetText("Error Invalid Password")
+			log.Println(GetLangs("ls-err3"))
+			errors.SetText(GetLangs("ls-err3"))
 		}
 
 		if !iserrors {
@@ -77,7 +79,6 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 			MyJson("LOAD")
 			alias.SetText(Alias)
 			server.SetText(Server)
-			//log.Println("logon.go Server " + Server)
 			queue.SetText(Queue)
 			queuepassword.SetText(Queuepassword)
 			password.Disable()
@@ -88,21 +89,21 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 		}
 	})
 
-	SSbutton := widget.NewButton("Logon", func() {
+	SSbutton := widget.NewButton(GetLangs("ls-title"), func() {
 
 		var iserrors = editEntry("URL", server.Text)
 		if iserrors == true {
-			log.Println("logon.go Error URL Incorrect Format ")
-			errors.SetText("Error Invalid Password")
+			log.Println(GetLangs("ls-err4"))
+			errors.SetText(GetLangs("ls-err4"))
 		}
 		iserrors = editEntry("STRING", queuepassword.Text)
 		if iserrors == true {
-			errors.SetText("Error Invalid Queue Password")
+			errors.SetText(GetLangs("ls-err5"))
 			iserrors = true
 		}
 		if len(queuepassword.Text) != 24 {
 			iserrors = true
-			errors.SetText("Error Queue Password Length is " + strconv.Itoa(len(queuepassword.Text)) + " shlould be length of 24")
+			errors.SetText(GetLangs("ls-err6-1") + strconv.Itoa(len(queuepassword.Text)) + "ls-err6-1")
 		}
 
 		if !iserrors && PasswordValid {
@@ -123,11 +124,23 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 			LoggedOn = true
 
 			errors.SetText("...")
+			nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
+			if err != nil {
+				errors.SetText(GetLangs("ls-err7") + err.Error())
+				return
+			}
+			js, err := nc.JetStream()
+			if err != nil {
+				errors.SetText(GetLangs("ls-err7") + err.Error())
+				return
+			}
+			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, []byte(FormatMessage("Connected")))
+
 		}
 
 	})
 	// security erase
-	SEbutton := widget.NewButton("Security Erase", func() {
+	SEbutton := widget.NewButton(GetLangs("ls-erase"), func() {
 		if PasswordValid {
 			NATSErase()
 		}
@@ -143,7 +156,7 @@ func logonScreen(MyWin fyne.Window) fyne.CanvasObject {
 	}
 
 	return container.NewCenter(container.NewVBox(
-		widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(GetLangs("ls-clogon"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		password,
 		tpbutton,
 		alias,
