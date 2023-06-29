@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
@@ -16,27 +14,23 @@ const preferenceCurrentApplication = "logon"
 var TopWindow fyne.Window
 
 func main() {
-
 	panes.MyJson("LOAD")
-	log.Println("load ", panes.PreferedLanguage)
 	panes.Init()
 	panes.MyAppDup = panes.GetMyApp()
-	//panes.MyAppDup.SetIcon(theme.FyneLogo())
+
 	MyLogo, _ := fyne.LoadResourceFromPath("logo.png")
 	panes.MyAppDup.SetIcon(MyLogo)
 	makeTray(panes.MyAppDup)
 	logLifecycle(panes.MyAppDup)
 
-	w := panes.MyAppDup.NewWindow("Secure NATS BETA.2")
-
+	w := panes.MyAppDup.NewWindow("SNATS BETA.2")
 	TopWindow = w
-
 	w.SetMaster()
 
 	content := container.NewMax()
 	title := widget.NewLabel("SNATS")
 
-	intro := widget.NewLabel("Secure Communications using NATS\nVisit nats.io for additional info.")
+	intro := widget.NewLabel(panes.GetLangs("mn-intro-1") + "\n" + "nats.io" + panes.GetLangs("mn-intro-2"))
 	intro.Wrapping = fyne.TextWrapWord
 	setPanes := func(t panes.MyPane) {
 		if fyne.CurrentDevice().IsMobile() {
@@ -81,10 +75,10 @@ func logLifecycle(a fyne.App) {
 
 func makeTray(a fyne.App) {
 	if desk, ok := a.(desktop.App); ok {
-		h := fyne.NewMenuItem("Secure", func() {})
-		menu := fyne.NewMenu("Encryption", h)
+		h := fyne.NewMenuItem(panes.GetLangs("mn-mt"), func() {})
+		menu := fyne.NewMenu(panes.GetLangs("mn-mt"), h)
 		h.Action = func() {
-			h.Label = "Secure"
+			h.Label = panes.GetLangs("mn-mt")
 			menu.Refresh()
 		}
 		desk.SetSystemTrayMenu(menu)
@@ -113,7 +107,7 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 		UpdateNode: func(uid string, branch bool, obj fyne.CanvasObject) {
 			t, ok := panes.MyPanes[uid]
 			if !ok {
-				fyne.LogError("Missing tutorial panel: "+uid, nil)
+				fyne.LogError(panes.GetLangs("mn-err1")+uid, nil)
 				return
 			}
 			obj.(*widget.Label).SetText(t.Title)
@@ -140,10 +134,10 @@ func makeNav(setTutorial func(panes panes.MyPane), loadPrevious bool) fyne.Canva
 	}
 
 	themes := container.NewGridWithColumns(2,
-		widget.NewButton("Dark", func() {
+		widget.NewButton(panes.GetLangs("mn-dark"), func() {
 			a.Settings().SetTheme(theme.DarkTheme())
 		}),
-		widget.NewButton("Light", func() {
+		widget.NewButton(panes.GetLangs("mn-light"), func() {
 			a.Settings().SetTheme(theme.LightTheme())
 		}),
 	)
