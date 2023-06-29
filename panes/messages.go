@@ -1,7 +1,6 @@
 package panes
 
 import (
-	"log"
 	"strconv"
 
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/goccy/go-json"
 
+	//"github.com/nh30000-org/nats.go"
 	"github.com/nats-io/nats.go"
 )
 
@@ -23,11 +23,11 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	errors := widget.NewLabel("...")
 
 	mymessage := widget.NewMultiLineEntry()
-	mymessage.SetPlaceHolder("Enter Message For Encryption")
+	mymessage.SetPlaceHolder(GetLangs("ms-mm"))
 	mymessage.SetMinRowsVisible(5)
 
 	icon := widget.NewIcon(nil)
-	label := widget.NewLabel("Select An Item From The List")
+	label := widget.NewLabel(GetLangs("ms-header1"))
 	//hbox := container.NewHBox(icon, label)
 	hbox := container.NewVScroll(label)
 
@@ -55,7 +55,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		icon.SetResource(theme.DocumentIcon())
 	}
 	List.OnUnselected = func(id widget.ListItemID) {
-		label.SetText("Select An Item From The List")
+		label.SetText(GetLangs("ms-header1"))
 		icon.SetResource(nil)
 	}
 
@@ -64,17 +64,17 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	if PasswordValid == true {
 		nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 		if err != nil {
-			log.Println("Messages", err)
+			errors.SetText(GetLangs("ms-err1"))
 		}
 
 		js, _ := nc.JetStream()
 
-		smbutton := widget.NewButton("Send Message", func() {
+		smbutton := widget.NewButton(GetLangs("ms-sm"), func() {
 			js.Publish(strings.ToLower(Queue)+"."+NodeUUID, FormatMessage(mymessage.Text))
 		})
 
 		topbox := container.NewBorder(
-			widget.NewLabelWithStyle("New Horizons 3000 Secure Communications", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle(GetLangs("ms-header2"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			smbutton,
 			nil,
 			nil,
@@ -82,15 +82,15 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		)
 
 		// recieve messages
-		recbutton := widget.NewButton("Recieve Messages", func() {
+		recbutton := widget.NewButton(GetLangs("ms-rm"), func() {
 			//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
 			NatsMessages = nil
-			label.SetText("Select An Item From The List")
+			label.SetText(GetLangs("ms-header1"))
 
 			nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 			if err != nil {
-				errors.SetText("Receive Messaged " + err.Error())
-				log.Println("messages.go Recieve Messages ", err, " pv ", PasswordValid)
+				errors.SetText(GetLangs("ms-err2"))
+
 			}
 
 			js, _ := nc.JetStream()
@@ -108,20 +108,18 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 				ReplayPolicy:      nats.ReplayInstantPolicy,
 			})
 			if err1 != nil {
-				log.Println("messages.go AddConsumer ", err1, " ", ac)
-				errors.SetText("Add Consumer " + err1.Error())
+				errors.SetText(GetLangs("ms-err3") + ac.Name)
 			}
 			sub, errsub := js.PullSubscribe("", "", nats.BindStream(Queue))
 			if errsub != nil {
-				//log.Println("messages.go PullSubscribe Sub ", errsub)
-				errors.SetText("PullSubscribe Sub " + errsub.Error())
+				errors.SetText(GetLangs("ms-err4") + errsub.Error())
 			}
 			msgs, errfetch := sub.Fetch(100)
 			if errfetch != nil {
-				errors.SetText("PullSubscribe Fetch " + errfetch.Error())
+				errors.SetText(GetLangs("ms-err5") + errfetch.Error())
 				//log.Println("messages.go PullSubscribe Fetch ", errfetch)
 			}
-			errors.SetText("Recieved " + strconv.Itoa(len(msgs)) + " messages")
+			errors.SetText(GetLangs("ms-err6-1") + strconv.Itoa(len(msgs)) + GetLangs("ms-err6-2"))
 			if len(msgs) > 0 {
 				for i := 0; i < len(msgs); i++ {
 					msgs[i].Nak()
@@ -137,7 +135,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			mymessage.Disable()
 			smbutton.Disable()
 			recbutton.Disable()
-			ErrorMessage = "Please Logon First"
+			ErrorMessage = GetLangs("ms-err7")
 		}
 		bottombox := container.NewBorder(
 			recbutton,
@@ -157,7 +155,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	}
 	return container.NewBorder(
 
-		widget.NewLabelWithStyle("Logon First", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(GetLangs("ms-err7"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		nil,
 		nil,
 		nil,
