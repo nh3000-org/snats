@@ -31,7 +31,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	//hbox := container.NewHBox(icon, label)
 	hbox := container.NewVScroll(label)
 
-	hbox.SetMinSize(fyne.NewSize(320, 240))
+	hbox.SetMinSize(fyne.NewSize(240, 240))
 	List := widget.NewList(
 		func() int {
 			return len(NatsMessages)
@@ -165,17 +165,18 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 func HandleMessage(m *nats.Msg) {
 	ms := MessageStore{}
 	var inmap = true // unique message id
-	ejson, _ := Decrypt(string(m.Data), Queuepassword)
-	err := json.Unmarshal([]byte(ejson), &ms)
+	ejson, err := Decrypt(string(m.Data), Queuepassword)
 	if err != nil {
-		ms.MSalias = "PRIVATE"
+		ejson = string(m.Data)
+	}
+	err1 := json.Unmarshal([]byte(ejson), &ms)
+	if err1 != nil {
+
 	}
 
 	inmap = NodeMap("MI" + ms.MSiduuid)
 	if inmap == false {
-		if ms.MSalias != "PRIVATE" {
-			NatsMessages = append(NatsMessages, ms)
-		}
+		NatsMessages = append(NatsMessages, ms)
 	}
 
 }
