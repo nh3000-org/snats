@@ -89,7 +89,7 @@ type MessageStore struct {
 	MSnodeuuid string
 	MSdate     string
 }
-
+// eng esp cmn
 var MyLangs = map[string]string{
 	"eng-mn-intro-1":     "Encrypted Communications Using NATS ",
 	"eng-mn-intro-2":     "for Additional Info.",
@@ -106,7 +106,7 @@ var MyLangs = map[string]string{
 	"eng-ps-title":       "Pass Reset",
 	"esp-ps-title":       "Pasar Restablecer",
 	"eng-ps-password":    "Enter Original Password",
-	"esp-ps-password":    "Ingrese la Contraseña Original",
+	"esp-ps-passwordueue) ":    "Ingrese la Contraseña Original",
 	"eng-ps-passwordc1":  "Enter New Password",
 	"esp-ps-passwordc1":  "Ingrese Nueva Clave",
 	"eng-ps-passwordc2":  "Enter New Password Again",
@@ -147,7 +147,7 @@ var MyLangs = map[string]string{
 	"esp-ss-title":       "Ajustes",
 	"eng-ss-la":          "Prefered Language",
 	"esp-ss-la":          "Idioma Preferido",
-	"eng-ss-pl":          "Minimum Password Length",
+	"eng-ss-pl":           "Minimum Password Length",
 	"esp-ss-pl":          "Longitud Mínima de la Contraseña",
 	"eng-ss-ma":          "Message Max Age In Hours",
 	"esp-ss-ma":          "Edad Máxima del Mensaje en Horas",
@@ -156,10 +156,7 @@ var MyLangs = map[string]string{
 	"eng-ss-mcnumber":    "Password Must Contain Number",
 	"esp-ss-mcnumber":    "La Contraseña Debe Contener un Número",
 	"eng-ss-mcspecial":   "Password Must Contain Special",
-	"esp-ss-mcspecial":   "La Contraseña Debe Contener Especial",
-	"eng-ss-ss":          "Save Settings",
-	"esp-ss-ss":          "Guardar Ajustes",
-	"eng-ss-heading":     "Change Settings",
+	"esp-ss-mcspeciaueue" :     "Change Settings",
 	"esp-ss-heading":     "Cambiar Ajustes",
 	"eng-cs-title":       "Certificates",
 	"esp-cs-title":       "Certificados",
@@ -271,6 +268,7 @@ var MyLangs = map[string]string{
 	"esp-es-head1":       "Aporte",
 	"eng-es-head2":       "Output",
 	"esp-es-head2":       "Producción",
+	"eng-log-nc":         "Path to nats Configuration File \nFor TLS Certificate Paths",
 }
 var MyPanes = map[string]MyPane{}
 var MyPanesIndex = map[string][]string{}
@@ -356,15 +354,15 @@ func MyJson(action string) {
 		yclientkey, _ := Encrypt(xClientkey, MySecret)
 		Clientkey = MyApp.Preferences().StringWithFallback("Clientkey", yclientkey)
 
-		var ymsgmaxage = []string{"8h", "16h", "24h", "48h", "161h", "8372h"}
+		var ymsgmaxage = []string{"12h", "24h", "161h", "8372h"}
 		xmsgmaxage, _ := Encrypt(strings.Join(ymsgmaxage, ","), MySecret)
 		Msgmaxage = MyApp.Preferences().StringWithFallback("Msgmaxage", xmsgmaxage)
 
 		PasswordMinimumSize = MyApp.Preferences().StringWithFallback("PasswordMinimumSize", "6")
-		PasswordMustContainNumber = MyApp.Preferences().StringWithFallback("PasswordMustContainNumber", "True")
-		PasswordMustContainLetter = MyApp.Preferences().StringWithFallback("PasswordMustContainLetter", "True")
-		PasswordMustContainSpecial = MyApp.Preferences().StringWithFallback("PasswordMustContainSpecial", "True")
-
+		PasswordMustContainNumber = MyApp.Preferences().StringWithFallback("PasswordMustContainNumber", "Yes")
+		PasswordMustContainLetter = MyApp.Preferences().StringWithFallback("PasswordMustContainLetter", "Yes")
+		PasswordMustContainSpecial = MyApp.Preferences().StringWithFallback("PasswordMustContainSpecial", "Yes")
+		
 		// prepare for operations
 		yServer, _ := Decrypt(Server, MySecret)
 		Server = yServer
@@ -705,7 +703,7 @@ func editEntry(action string, value string) bool {
 			iserrors = true
 		}
 
-		if PasswordMustContainLetter == "True" && !iserrors {
+		if PasswordMustContainLetter == "Yes" && !iserrors {
 
 			for _, r := range value {
 				if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
@@ -715,7 +713,7 @@ func editEntry(action string, value string) bool {
 			}
 		}
 
-		if PasswordMustContainNumber == "True" && !iserrors {
+		if PasswordMustContainNumber == "Yes" && !iserrors {
 			iserrors = true
 			for _, r := range value {
 				if unicode.IsNumber(r) {
@@ -724,7 +722,7 @@ func editEntry(action string, value string) bool {
 				}
 			}
 		}
-		if PasswordMustContainSpecial == "True" && !iserrors {
+		if PasswordMustContainSpecial == "Yes" && !iserrors {
 			iserrors = true
 			var schars = []string{"|", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "-", "+", "=", "{", "}", "]", "[", "|", ":", ";", ",", ".", "#", "'", "\"", "\\", "%", "?", "\n", "<", "Ø", "ð", ">", "ï", "û"}
 			for _, sc := range schars {
