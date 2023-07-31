@@ -178,7 +178,7 @@ func main() {
 				if err != nil {
 					log.Println(GetLangs(MyLogLang, "mn-js"), err)
 				}
-				js.Publish("log.log", []byte(FormatMessage(string(buf))))
+				js.Publish("MESSAGES.log", []byte(FormatMessage(string(buf))))
 			}
 		}
 
