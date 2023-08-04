@@ -1,5 +1,5 @@
 package panes
- 
+
 import (
 	"strconv"
 
@@ -27,8 +27,9 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	mymessage.SetMinRowsVisible(5)
 
 	icon := widget.NewIcon(nil)
-	label := widget.NewLabel(GetLangs("ms-header1"))
-	//hbox := container.NewHBox(icon, label)
+	labeltxt := widget.NewLabel(GetLangs("ms-header1"))
+	label := container.NewHScroll(labeltxt)
+	//label := widget.NewLabel(GetLangs("ms-header1"))
 	hbox := container.NewVScroll(label)
 
 	hbox.SetMinSize(fyne.NewSize(240, 240))
@@ -51,11 +52,11 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 	)
 	List.OnSelected = func(id widget.ListItemID) {
 		var mytext = NatsMessages[id].MSmessage + "\n.................." + NatsMessages[id].MShostname + NatsMessages[id].MSipadrs + NatsMessages[id].MSnodeuuid + NatsMessages[id].MSiduuid + NatsMessages[id].MSdate
-		label.SetText(mytext)
+		labeltxt.SetText(mytext)
 		icon.SetResource(theme.DocumentIcon())
 	}
 	List.OnUnselected = func(id widget.ListItemID) {
-		label.SetText(GetLangs("ms-header1"))
+		labeltxt.SetText(GetLangs("ms-header1"))
 		icon.SetResource(nil)
 	}
 
@@ -85,7 +86,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 		recbutton := widget.NewButton(GetLangs("ms-rm"), func() {
 			//nc, err := nats.Connect(Server, nats.RootCAs(DataStore("ca-root.pem").Path()), nats.ClientCert(DataStore("client-cert.pem").Path(), DataStore("client-key.pem").Path()))
 			NatsMessages = nil
-			label.SetText(GetLangs("ms-header1"))
+			labeltxt.SetText(GetLangs("ms-header1"))
 
 			nc, err := nats.Connect(Server, nats.RootCAsMem([]byte(Caroot)), nats.ClientCertMem([]byte(Clientcert), []byte(Clientkey)))
 			if err != nil {
@@ -97,10 +98,10 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 			js.AddStream(&nats.StreamConfig{
 				Name: Queue + NodeUUID,
 
-				Subjects: []string{strings.ToLower(Queue) + ".>"},
+				Subjects: []string{strings.ToLower(Queue) + ".>", "log" + NodeUUID},
 			})
 			var duration time.Duration = 604800000000
-			ac, err1 := js.AddConsumer(Queue, &nats.ConsumerConfig{
+			_, err1 := js.AddConsumer(Queue, &nats.ConsumerConfig{
 				Durable:           NodeUUID,
 				AckPolicy:         nats.AckExplicitPolicy,
 				InactiveThreshold: duration,
@@ -108,7 +109,7 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 				ReplayPolicy:      nats.ReplayInstantPolicy,
 			})
 			if err1 != nil {
-				errors.SetText(GetLangs("ms-err3") + ac.Name)
+				errors.SetText(GetLangs("ms-err3") + err1.Error())
 			}
 			sub, errsub := js.PullSubscribe("", "", nats.BindStream(Queue))
 			if errsub != nil {
@@ -119,11 +120,32 @@ func messagesScreen(_ fyne.Window) fyne.CanvasObject {
 				errors.SetText(GetLangs("ms-err5") + errfetch.Error())
 				//log.Println("messages.go PullSubscribe Fetch ", errfetch)
 			}
-			errors.SetText(GetLangs("ms-err6-1") + strconv.Itoa(len(msgs)) + GetLangs("ms-err6-2"))
+			if errfetch != nil {
+				errors.SetText(GetLangs("ms-err5") + errfetch.Error())
+				//log.Println("messages.go PullSubscribe Fetch ", errfetch)
+			}
+			//errors.SetText(GetLangs("ms-err6-1") + strconv.Itoa(len(msgs)) + GetLangs("ms-err6-2"))
 			if len(msgs) > 0 {
 				for i := 0; i < len(msgs); i++ {
 					msgs[i].Nak()
 					HandleMessage(msgs[i])
+				}
+
+			}
+			sublog, errsublog := js.PullSubscribe("", "", nats.BindStream("log"))
+			if errsublog != nil {
+				errors.SetText(GetLangs("ms-err4") + errsublog.Error())
+			}
+			msgslog, errfetchlog := sublog.Fetch(100)
+			if errfetchlog != nil {
+				errors.SetText(GetLangs("ms-err5") + errfetchlog.Error())
+				//log.Println("messages.go PullSubscribe Fetch ", errfetch)
+			}
+			errors.SetText(GetLangs("ms-err6-1") + strconv.Itoa(len(msgs)) + GetLangs("ms-err6-2") + strconv.Itoa(len(msgslog)) + GetLangs("ms-err6-3"))
+			if len(msgslog) > 0 {
+				for i := 0; i < len(msgslog); i++ {
+					msgslog[i].Nak()
+					HandleMessage(msgslog[i])
 				}
 
 			}
@@ -171,7 +193,7 @@ func HandleMessage(m *nats.Msg) {
 	}
 	err1 := json.Unmarshal([]byte(ejson), &ms)
 	if err1 != nil {
-
+		ejson = "Unknown"
 	}
 
 	inmap = NodeMap("MI" + ms.MSiduuid)
